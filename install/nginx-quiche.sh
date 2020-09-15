@@ -18,8 +18,11 @@ sudo apt-get install -y \
   libpcre3-dev \
   curl \
   zlib1g-dev \
-  libcurl4-openssl-dev
-
+  libcurl4-openssl-dev \
+  autoconf \
+  libtool-bin \
+  libnss3-tools
+  
 # make build root dir
 mkdir -p $BUILDROOT
 cd $BUILDROOT
@@ -55,6 +58,43 @@ echo '-----Building and Installing------'
 make
 sudo make install
 
+# Install libquiche
+echo '-------Building and installing http3-curl'
+
+cd $BUILDROOT/quiche
+cargo build --release --features pkg-config-meta,qlog
+mkdir deps/boringssl/src/lib
+ln -vnf $(find target/release -name libcrypto.a -o -name libssl.a) deps/boringssl/src/lib/
+cd $BUILDROOT
+git clone https://github.com/curl/curl
+cd $BUILDROOT/curl
+./buildconf
+./configure LDFLAGS="-Wl,-rpath,$PWD/../quiche/target/release" \
+                        --with-ssl=$PWD/../quiche/deps/boringssl/src \
+                        --with-quiche=$PWD/../quiche/target/release  \
+                         --enable-alt-svc
+make
+sudo make install
+sudo cp $BUILDROOT/quiche/target/release/libquiche.so /lib/
+
+# Install server certificate
+echo '-----Installing server certificate-----'
+cd $BUILDROOT
+curl -O https://golang.org/dl/go1.15.1.linux-amd64.tar.gz
+if ! (grep -Fxq "export PATH=\$PATH:/usr/local/go/bin" ~/.profile); then
+    echo "export PATH=\$PATH:/usr/local/go/bin" >> ~/.profile
+fi
+source $HOME/.profile
+git clone https://github.com/FiloSottile/mkcert && cd mkcert
+go build -ldflags "-X main.Version=$(git describe --tags)"
+chmod +x mkcert
+./mkcert -install localhost
+sudo ./mkcert -key-file localhost-key.pem -cert-file localhost.pem localhost
+
+# Configure server
+echo '---------Configuring Server--------'
+sudo rm /usr/local/nginx/conf/nginx.conf
+sudo cp nginx.conf /usr/local/nginx/conf/nginx.conf
 
 # Add systemd service
 echo '------Adding Service---------'
