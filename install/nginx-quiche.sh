@@ -89,7 +89,9 @@ git clone https://github.com/FiloSottile/mkcert && cd mkcert
 go build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
 ./mkcert -install localhost
-sudo ./mkcert -key-file localhost-key.pem -cert-file localhost.pem localhost
+sudo ./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
+    -cert-file /usr/local/nginx/conf/localhost.pem \
+    localhost
 
 # Configure server
 echo '---------Configuring Server--------'
