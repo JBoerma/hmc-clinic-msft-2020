@@ -1,5 +1,6 @@
 #!/bin/bash
 
+INSTALLDIR="$PWD"
 BUILDROOT="/tmp/nginx-quiche"
 USERNAME=$USER
 
@@ -78,13 +79,6 @@ sudo make install
 sudo cp $BUILDROOT/quiche/target/release/libquiche.so /lib/
 
 # Install server certificate
-echo '-----Installing server certificate-----'
-cd $BUILDROOT
-curl -O https://golang.org/dl/go1.15.1.linux-amd64.tar.gz
-if ! (grep -Fxq "export PATH=\$PATH:/usr/local/go/bin" ~/.profile); then
-    echo "export PATH=\$PATH:/usr/local/go/bin" >> ~/.profile
-fi
-source $HOME/.profile
 git clone https://github.com/FiloSottile/mkcert && cd mkcert
 go build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
@@ -96,7 +90,7 @@ sudo ./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
 # Configure server
 echo '---------Configuring Server--------'
 sudo rm /usr/local/nginx/conf/nginx.conf
-sudo cp nginx.conf /usr/local/nginx/conf/nginx.conf
+sudo cp "$INSTALLDIR/nginx.conf" /usr/local/nginx/conf/nginx.conf
 
 # Add systemd service
 echo '------Adding Service---------'
