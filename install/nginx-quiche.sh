@@ -1,8 +1,15 @@
 #!/bin/bash
-
+# This script is based on a previous script found here:
+# https://gist.github.com/neilstuartcraig/4b8f06a4d4374c379bc0f44923a11fa4
 INSTALLDIR="$PWD"
 BUILDROOT="/tmp/nginx-quiche"
 USERNAME=$USER
+
+if ! cat nginx.conf &> /dev/null
+then
+  echo "Install Failed: Please run from Install directory"
+  exit
+fi
 
 # Pre-req
 sudo apt-get update
@@ -37,6 +44,8 @@ then
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 	source $HOME/.cargo/env
 fi
+
+exit
 
 curl -O https://nginx.org/download/nginx-1.16.1.tar.gz
 tar xvzf nginx-1.16.1.tar.gz
@@ -97,7 +106,7 @@ echo '------Adding Service---------'
 
 sudo bash -c 'cat >/lib/systemd/system/nginx.service' <<EOL
 [Unit]
-Description=NGINX with BoringSSL
+Description=NGINX with Quiche Support
 Documentation=http://nginx.org/en/docs/
 After=network.target remote-fs.target nss-lookup.target
  
