@@ -2,7 +2,7 @@
 # This script is based on a previous script found here:
 # https://gist.github.com/neilstuartcraig/4b8f06a4d4374c379bc0f44923a11fa4
 INSTALLDIR="$PWD"
-BUILDROOT="/tmp/nginx-quiche"
+BUILDROOT="/tmp/nginx-quic"
 USERNAME=$USER
 
 if ! cat nginx.conf &> /dev/null
@@ -29,7 +29,8 @@ sudo apt-get install -y \
   libcurl4-openssl-dev \
   autoconf \
   libtool-bin \
-  libnss3-tools
+  libnss3-tools \
+  mercurial
   
 # make build root dir
 mkdir -p $BUILDROOT
@@ -38,74 +39,64 @@ cd $BUILDROOT
 # Get stuff
 echo '-----Downloading source-----'
 
-if ! command -v cargo &> /dev/null
-then
-	echo '----Installing Rust-----'
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-	source $HOME/.cargo/env
-fi
+# Build BoringSSL
+git clone https://boringssl.googlesource.com/boringssl 
+cd boringssl
+mkdir build 
+cd $BUILDROOT/boringssl/build
+cmake ..
+make
 
-curl -O https://nginx.org/download/nginx-1.16.1.tar.gz
-tar xvzf nginx-1.16.1.tar.gz
-git clone --recursive https://github.com/cloudflare/quiche
+# Make an .openssl directory for nginx and then symlink BoringSSL's include directory tree
+mkdir -p "$BUILDROOT/boringssl/.openssl/lib"
+cd "$BUILDROOT/boringssl/.openssl"
+ln -s ../include include
+
+# Copy the BoringSSL crypto libraries to .openssl/lib so nginx can find them
+cd "$BUILDROOT/boringssl"
+cp "build/crypto/libcrypto.a" ".openssl/lib"
+cp "build/ssl/libssl.a" ".openssl/lib"
+
 # Prep nginx
-cd $BUILDROOT/nginx-1.16.1
-patch -p01 < ../quiche/extras/nginx/nginx-1.16.patch
-
-echo "----Configuring-------"
+mkdir -p "$BUILDROOT/nginx"
+cd $BUILDROOT/nginx
+hg clone -b quic https://hg.nginx.org/nginx-quic
+cd "$BUILDROOT/nginx/nginx-quic"
 
 # Run the config with default options and append any additional options specified by the above section
-./configure --with-debug \
-            --with-http_ssl_module              	\
-            --with-http_v2_module               	\
-            --with-http_v3_module               	\
-            --with-openssl=$BUILDROOT/quiche/deps/boringssl \
-            --with-quiche=$BUILDROOT/quiche
-
-# Build nginx
-echo '-----Building and Installing------'
+./auto/configure --with-http_ssl_module              	\
+                    --with-http_v2_module               	\
+                    --with-http_v3_module               	\
+                    --with-cc-opt="-I $BUILDROOT/boringssl/include"   \
+                    --with-ld-opt="-L $BUILDROOT/boringssl/build/ssl  \
+                                  -L $BUILDROOT/boringssl/build/crypto" \
+                    --with-openssl="$BUILDROOT/boringssl"
+# Fix "Error 127" during build
+touch "$BUILDROOT/boringssl/.openssl/include/openssl/ssl.h"
 make
 sudo make install
-
-# Install libquiche
-echo '-------Building and installing http3-curl'
-
-cd $BUILDROOT/quiche
-cargo build --release --features pkg-config-meta,qlog
-mkdir deps/boringssl/src/lib
-ln -vnf $(find target/release -name libcrypto.a -o -name libssl.a) deps/boringssl/src/lib/
-cd $BUILDROOT
-git clone https://github.com/curl/curl
-cd $BUILDROOT/curl
-./buildconf
-./configure LDFLAGS="-Wl,-rpath,$PWD/../quiche/target/release" \
-                        --with-ssl=$PWD/../quiche/deps/boringssl/src \
-                        --with-quiche=$PWD/../quiche/target/release  \
-                         --enable-alt-svc
-make
-sudo make install
-sudo cp $BUILDROOT/quiche/target/release/libquiche.so /lib/
 
 # Install server certificate
+cd "$BUILDROOT"
 git clone https://github.com/FiloSottile/mkcert && cd mkcert
 go build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
 ./mkcert -install localhost
-sudo ./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
+./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
     -cert-file /usr/local/nginx/conf/localhost.pem \
     localhost
 
 # Configure server
 echo '---------Configuring Server--------'
 sudo rm /usr/local/nginx/conf/nginx.conf
-sudo cp "$INSTALLDIR/nginx.conf" /usr/local/nginx/conf/nginx.conf
+cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx/conf/nginx.conf
 
 # Add systemd service
 echo '------Adding Service---------'
 
 sudo bash -c 'cat >/lib/systemd/system/nginx.service' <<EOL
 [Unit]
-Description=NGINX with Quiche Support
+Description=NGINX with Quic Support
 Documentation=http://nginx.org/en/docs/
 After=network.target remote-fs.target nss-lookup.target
  
@@ -131,5 +122,5 @@ sudo systemctl start nginx.service
 
 # Finish script
 sudo systemctl reload nginx.service
-sudo chown -R $USER /usr/local/nginx
+sudo chown -R $USERNAME /usr/local/nginx
 exit
