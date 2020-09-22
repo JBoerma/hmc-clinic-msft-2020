@@ -45,8 +45,6 @@ then
 	source $HOME/.cargo/env
 fi
 
-exit
-
 curl -O https://nginx.org/download/nginx-1.16.1.tar.gz
 tar xvzf nginx-1.16.1.tar.gz
 git clone --recursive https://github.com/cloudflare/quiche
