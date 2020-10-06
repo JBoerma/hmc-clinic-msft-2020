@@ -308,3 +308,25 @@ Then, compile with `make`. The executable will be placed in the `src` folder.
 
 [^4]: https://github.com/curl/curl/blob/master/docs/HTTP3.md
 
+## Firefox
+
+To use Firefox with HTTP/3 with the server, navigate to `about:config`, and then set
+
+```
+network.http.http3.enabled = false
+```
+
+## Chromium
+
+To use Chromium with HTTP/3 with the server, download this script:
+
+```
+https://github.com/scheib/chromium-latest-linux/archive/master.zip
+```
+
+Then, run `update.sh` to download the latest version of Chromium. Navigate to the `latest` folder, and then run:
+
+```
+./chrome --enable-quic --origin-to-force-quic-on=localhost:443
+```
+

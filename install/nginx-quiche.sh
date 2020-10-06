@@ -59,6 +59,7 @@ echo "----Configuring-------"
             --with-http_ssl_module              	\
             --with-http_v2_module               	\
             --with-http_v3_module               	\
+            --with-ipv6                             \
             --with-openssl=$BUILDROOT/quiche/deps/boringssl \
             --with-quiche=$BUILDROOT/quiche
 

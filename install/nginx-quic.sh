@@ -65,8 +65,9 @@ cd "$BUILDROOT/nginx/nginx-quic"
 
 # Run the config with default options and append any additional options specified by the above section
 ./auto/configure --with-http_ssl_module              	\
-                    --with-http_v2_module               	\
-                    --with-http_v3_module               	\
+                    --with-http_v2_module               \
+                    --with-http_v3_module               \
+                    --with-ipv6                         \
                     --with-cc-opt="-I $BUILDROOT/boringssl/include"   \
                     --with-ld-opt="-L $BUILDROOT/boringssl/build/ssl  \
                                   -L $BUILDROOT/boringssl/build/crypto" \
