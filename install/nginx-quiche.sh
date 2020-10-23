@@ -22,7 +22,6 @@ sudo apt-get install -y \
   cmake \
   git \
   gnupg \
-  golang \
   libpcre3-dev \
   curl \
   zlib1g-dev \
@@ -37,6 +36,11 @@ cd $BUILDROOT
 
 # Get stuff
 echo '-----Downloading source-----'
+
+mkdir go
+wget https://golang.org/dl/go1.15.3.linux-amd64.tar.gz -P $BUILDROOT/go
+sudo tar -C /usr/local -xzf go/go1.15.3.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
 
 if ! command -v cargo &> /dev/null
 then
