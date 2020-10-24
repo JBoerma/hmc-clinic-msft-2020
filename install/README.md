@@ -1,6 +1,8 @@
 # Install Guide
 
-An installer script is provided in this directory for ease of use on Debian systems. Do to the use of `apt`, the script will not run on other distribution
+In this directory, an installer script is provided for both the official NGINX with QUIC support and the unofficial NGINX with QUICHE support for ease of use on Debian systems. Due to the use of `apt`, the scripts will not run on other distribution.
+
+The installer scripts will automatically run the manual instructions listed below, and therefore are all that is needed to setup the server if no more configuration is required.
 
 ## Dependencies
 

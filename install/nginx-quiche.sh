@@ -98,7 +98,7 @@ chmod +x mkcert
 ./mkcert -install localhost
 sudo ./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
     -cert-file /usr/local/nginx/conf/localhost.pem \
-    localhost
+    localhost 127.0.0.1 example.com ::1
 
 # Configure server
 echo '---------Configuring Server--------'
@@ -136,5 +136,5 @@ sudo systemctl start nginx.service
 
 # Finish script
 sudo systemctl reload nginx.service
-sudo chown -R $USER /usr/local/nginx
+sudo chown -R $USERNAME /usr/local/nginx
 exit

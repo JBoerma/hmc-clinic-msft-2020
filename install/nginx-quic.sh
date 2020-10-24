@@ -22,7 +22,6 @@ sudo apt-get install -y \
   cmake \
   git \
   gnupg \
-  golang \
   libpcre3-dev \
   curl \
   zlib1g-dev \
@@ -38,6 +37,18 @@ cd $BUILDROOT
 
 # Get stuff
 echo '-----Downloading source-----'
+
+mkdir go
+wget https://golang.org/dl/go1.15.3.linux-amd64.tar.gz -P $BUILDROOT/go
+sudo tar -C /usr/local -xzf go/go1.15.3.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+
+if ! command -v cargo &> /dev/null
+then
+	echo '----Installing Rust-----'
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+	source $HOME/.cargo/env
+fi
 
 # Build BoringSSL
 git clone https://boringssl.googlesource.com/boringssl 
@@ -85,7 +96,7 @@ chmod +x mkcert
 ./mkcert -install localhost
 ./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
     -cert-file /usr/local/nginx/conf/localhost.pem \
-    localhost
+    localhost 127.0.0.1 example.com ::1
 
 # Configure server
 echo '---------Configuring Server--------'
