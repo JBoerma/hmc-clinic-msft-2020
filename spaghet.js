@@ -9,13 +9,13 @@ networkInterface = "lo";
 
 runExperiment(call,reset,"firefox");
 
-function launchBrowser (browerType) {
+async function launchBrowser (browerType) {
   if (browerType  ==  "firefox" ) {
-    launchFirefox();
+    await launchFirefox();
   } else if (browerType  ==  "chromium") {
-    launchChromium();
+    await launchChromium();
   } else if (browerType  ==  "edge") {
-    launchEdge();
+    await launchEdge();
   }
 }
 
@@ -112,14 +112,9 @@ async function launchEdge() {
 
 // Note: .then *hopefully ensures synchronicity
 async function runExperiment(call, reset, browserType) {
-  await runTcCommand(call);
-  await console.log("hello1");
-  await launchBrowser(browserType);
-  await runTcCommand(reset);
-  // runTcCommand(call)
-  // .then(launchBrowser(browserType))
-  // .then(runTcCommand(reset))
-  // .then(console.log("hello"))
+  await runTcCommand(call)
+  await launchBrowser(browserType)
+  await runTcCommand(reset)
 }
 
 
@@ -138,4 +133,3 @@ async function runTcCommand(command) {
         console.log(`stderr: ${stderr}`);
       });
 }
-
