@@ -9,19 +9,20 @@ reset = "sudo tc qdisc del dev lo root"
 networkInterface = "lo";
 
 timingParameters = 
-["navigationStart",
+[ "startTime",
+  //"navigationStart",
 // "unloadEventStart",
 // "unloadEventEnd",
 "fetchStart",
 "domainLookupStart",
 "domainLookupEnd",
 "connectStart", 
-"connectEnd", 
 "secureConnectionStart",
+"connectEnd", 
 "requestStart", 
 "responseStart", 
  "responseEnd",
- "domLoading", 
+ //"domLoading", 
  "domInteractive",  
  "domContentLoadedEventStart", 
  "domContentLoadedEventEnd", 
@@ -33,28 +34,37 @@ timingParameters =
 (async ()=>{
   // because otherwise our server won't necessarily be running
   await exec(
-    "sudo systemctl restart nginx.service", 
-    (err, stdout, stderr) => {}
+    "sudo systemctl restart nginx.service",
+    (err, stdout, stderr) => { }
   )
-  // run the same experiment 10 times over h3
-  for (let i = 0; i < 10; i++) {
-    await runExperiment(call,reset,"firefox");
-  }
+  const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+  const csvWriter = createCsvWriter({
+    path: 'out.csv',
+    append: false,
+    header: 
+    timingParameters.map(function(x){ return {id: x, title: x}})
+  });
 
+  // run the same experiment 10 times over h3
+  console.log("HTTP/3:")
+  for (let i = 0; i < 10; i++) {
+    await runExperiment(call,reset,"firefox", csvWriter, true);
+  }
+  console.log("HTTP/2")
   // run the same experiment 10 times over h2
   for (let i = 0; i < 10; i++) {
-    await runExperiment(call,reset,"firefox", false);
+    await runExperiment(call,reset,"firefox", csvWriter, false);
   } 
 
   // visualize the experiment using python (Todo: fix this!)
   await exec(
-    "python3 visualization.py", () => {}
+    "python3 visualization.py", (err, stdout, stderr) => { }
   )
 })();
 
-async function launchBrowser (browerType, h3 = true) {
+async function launchBrowser (browerType, csvWriter, h3 = true) {
   if (browerType  ==  "firefox" ) {
-    await launchFirefox(h3);
+    await launchFirefox(csvWriter, h3);
   } else if (browerType  ==  "chromium") {
     await launchChromium(h3);
   } else if (browerType  ==  "edge") {
@@ -62,12 +72,13 @@ async function launchBrowser (browerType, h3 = true) {
   }
 }
 
-async function launchFirefox(h3 = true) {
+async function launchFirefox(csvWriter, h3 = true) {
   let firefoxPrefs = {}
   if (h3) {
     firefoxPrefs = {
       "network.http.http3.enabled":true,
-      "network.http.http3.alt-svc-mapping-for-testing":"localhost;h3-29=:443"
+      "network.http.http3.alt-svc-mapping-for-testing":"localhost;h3-29=:443",
+      "privacy.reduceTimerPrecision":false
     }
   }
   const ffbrowser = await firefox.launch({
@@ -79,13 +90,17 @@ async function launchFirefox(h3 = true) {
   ffpage.on('response', response =>
       console.log("Firefox: ",response.headers()['version'])); 
   await ffpage.goto("https://localhost");
-  await ffpage.reload();
+  //await ffpage.reload();
 
   // getting performance timing data
   // if we don't stringify and parse, things break
-  const performanceTimingJson = await ffpage.evaluate(() => JSON.stringify(window.performance.timing))
+  //const performanceTimingJson = await ffpage.evaluate(() => JSON.stringify(window.performance.timing))
+  const performanceTimingJson = await ffpage.evaluate(() => JSON.stringify(window.performance.getEntriesByType("navigation")[0]))
   const performanceTiming = JSON.parse(performanceTimingJson)
-  writeCSVFromPerformanceTiming([normalizePerformanceTiming(performanceTiming.navigationStart, performanceTiming) ])
+  console.log(performanceTiming)
+  //await csvWriter.writeRecords([normalizePerformanceTiming(performanceTiming.navigationStart, performanceTiming) ])
+  await csvWriter.writeRecords([performanceTiming])
+    .then(()=> console.log('The CSV file was written successfully'));
 
   await ffbrowser.close();
 }
@@ -101,20 +116,6 @@ function normalizePerformanceTiming(navigationStart, perfTiming) {
   return normalized;
 }
 ////////////////////////////////////
-function writeCSVFromPerformanceTiming(perfTiming) {
-  const createCsvWriter = require('csv-writer').createObjectCsvWriter;
-  const csvWriter = createCsvWriter({
-    path: 'out.csv',
-    append: true,
-    header: 
-    timingParameters.map(function(x){ return {id: x, title: x}})
-  });
-
-  csvWriter
-    .writeRecords(perfTiming)
-    .then(()=> console.log('The CSV file was written successfully'));
-}
-
 
 async function launchChromium(h3 = true) {
   let chromiumArgs = []
@@ -156,25 +157,25 @@ async function launchEdge(h3 = true) {
 }
 
 // Note: .then *hopefully ensures synchronicity
-async function runExperiment(call, reset, browserType, h3 = true) {
+async function runExperiment(call, reset, browserType, csvWriter, h3 = true) {
   await runTcCommand(call)
-  await launchBrowser(browserType, h3)
+  await launchBrowser(browserType, csvWriter, h3)
   await runTcCommand(reset)
 }
 
 
 async function runTcCommand(command) {
     await exec(command, (err, stdout, stderr) => {
-        console.log("Running: " + command)
-        // do
-        if (err) {
-            console.log("Node encountered an error")
-            console.log(err)
-            return;
-        }
-      
-        // the *entire* stdout and stderr (buffered)
-        console.log(`stdout: ${stdout}`);
-        console.log(`stderr: ${stderr}`);
-      });
+    console.log("Running: " + command);
+    // do
+    if (err) {
+      console.log("Node encountered an error");
+      console.log(err);
+      return;
+    }
+
+    // the *entire* stdout and stderr (buffered)
+    console.log(`stdout: ${stdout}`);
+    console.log(`stderr: ${stderr}`);
+  });
 }
