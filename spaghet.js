@@ -1,4 +1,5 @@
 const { exec, execSync } = require('child_process');
+const { timeStamp } = require('console');
 const { firefox, chromium } = require('playwright');
 
 // generated command line code
@@ -7,6 +8,27 @@ reset = "sudo tc qdisc del dev lo root"
 
 networkInterface = "lo";
 
+timingParameters = 
+["navigationStart",
+// "unloadEventStart",
+// "unloadEventEnd",
+"fetchStart",
+"domainLookupStart",
+"domainLookupEnd",
+"connectStart", 
+"connectEnd", 
+"secureConnectionStart",
+"requestStart", 
+"responseStart", 
+ "responseEnd",
+ "domLoading", 
+ "domInteractive",  
+ "domContentLoadedEventStart", 
+ "domContentLoadedEventEnd", 
+ "domComplete", 
+ "loadEventStart",
+ "loadEventEnd"
+];
 
 (async ()=>{
   // because otherwise our server won't necessarily be running
@@ -14,29 +36,43 @@ networkInterface = "lo";
     "sudo systemctl restart nginx.service", 
     (err, stdout, stderr) => {}
   )
-  // run the same experiment 10 times
+  // run the same experiment 10 times over h3
   for (let i = 0; i < 10; i++) {
     await runExperiment(call,reset,"firefox");
   }
+
+  // run the same experiment 10 times over h2
+  for (let i = 0; i < 10; i++) {
+    await runExperiment(call,reset,"firefox", false);
+  } 
+
+  // visualize the experiment using python (Todo: fix this!)
+  await exec(
+    "python3 visualization.py", () => {}
+  )
 })();
 
-async function launchBrowser (browerType) {
+async function launchBrowser (browerType, h3 = true) {
   if (browerType  ==  "firefox" ) {
-    await launchFirefox();
+    await launchFirefox(h3);
   } else if (browerType  ==  "chromium") {
-    await launchChromium();
+    await launchChromium(h3);
   } else if (browerType  ==  "edge") {
-    await launchEdge();
+    await launchEdge(h3);
   }
 }
 
-async function launchFirefox() {
+async function launchFirefox(h3 = true) {
+  let firefoxPrefs = {}
+  if (h3) {
+    firefoxPrefs = {
+      "network.http.http3.enabled":true,
+      "network.http.http3.alt-svc-mapping-for-testing":"localhost;h3-29=:443"
+    }
+  }
   const ffbrowser = await firefox.launch({
     headless: true,
-    firefoxUserPrefs: {
-        "network.http.http3.enabled":true,
-        "network.http.http3.alt-svc-mapping-for-testing":"localhost;h3-29=:443"
-      }
+    firefoxUserPrefs: firefoxPrefs,
   });
   const ffcontext = await ffbrowser.newContext();
   const ffpage = await ffcontext.newPage();
@@ -49,40 +85,29 @@ async function launchFirefox() {
   // if we don't stringify and parse, things break
   const performanceTimingJson = await ffpage.evaluate(() => JSON.stringify(window.performance.timing))
   const performanceTiming = JSON.parse(performanceTimingJson)
-  writeCSVFromPerformanceTiming([performanceTiming])
+  writeCSVFromPerformanceTiming([normalizePerformanceTiming(performanceTiming.navigationStart, performanceTiming) ])
 
   await ffbrowser.close();
 }
-
+// this function takes in a JSON object and subtract every field with navigationStart
+function normalizePerformanceTiming(navigationStart, perfTiming) {
+  let normalized = {}
+  for (var field in perfTiming) {
+    if (field != "redirectStart" || field != "redirectEnd") {
+      let timeStamp = perfTiming[field]
+      normalized[field] = timeStamp - navigationStart
+    }
+  }
+  return normalized;
+}
 ////////////////////////////////////
 function writeCSVFromPerformanceTiming(perfTiming) {
   const createCsvWriter = require('csv-writer').createObjectCsvWriter;
   const csvWriter = createCsvWriter({
     path: 'out.csv',
     append: true,
-    header: [
-        {id: "navigationStart", title: "navigationStart"}, 
-        {id: "unloadEventStart", title: "unloadEventStart"}, 
-        {id: "unloadEventEnd", title: "unloadEventEnd"}, 
-        {id: "redirectStart", title: "redirectStart"}, 
-        {id: "redirectEnd", title: "redirectEnd"}, 
-        {id: "fetchStart", title: "fetchStart"}, 
-        {id: "domainLookupStart", title: "domainLookupStart"}, 
-        {id: "domainLookupEnd", title: "domainLookupEnd"}, 
-        {id: "connectStart", title: "connectStart"}, 
-        {id: "connectEnd", title: "connectEnd"}, 
-        {id: "secureConnectionStart", title: "secureConnectionStart"}, 
-        {id: "requestStart", title: "requestStart"}, 
-        {id: "responseStart", title: "responseStart"}, 
-        {id: "responseEnd", title: "responseEnd"}, 
-        {id: "domLoading", title: "domLoading"}, 
-        {id: "domInteractive", title: "domInteractive"}, 
-        {id: "domContentLoadedEventStart", title: "domContentLoadedEventStart"}, 
-        {id: "domContentLoadedEventEnd", title: "domContentLoadedEventEnd"}, 
-        {id: "domComplete", title: "domComplete"}, 
-        {id: "loadEventStart", title: "loadEventStart"}, 
-        {id: "loadEventEnd", title: "loadEventEnd"},     
-    ]
+    header: 
+    timingParameters.map(function(x){ return {id: x, title: x}})
   });
 
   csvWriter
@@ -91,10 +116,14 @@ function writeCSVFromPerformanceTiming(perfTiming) {
 }
 
 
-async function launchChromium() {
+async function launchChromium(h3 = true) {
+  let chromiumArgs = []
+  if (h3) {
+    chromiumArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"];
+  }
   const chrombrowser = await chromium.launch({
     headless: true,
-    args: ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"],
+    args: chromiumArgs,
   });
   const chromcontext = await chrombrowser.newContext();
   const chrompage = await chromcontext.newPage();
@@ -106,11 +135,15 @@ async function launchChromium() {
   await chrombrowser.close();
 }
 
-async function launchEdge() {
+async function launchEdge(h3 = true) {
+  let edgeArgs = []
+  if (h3) {
+    chromiumArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"];
+  }
   const edgebrowser = await chromium.launch({
     headless: true,
     executablePath: '/opt/microsoft/msedge-dev/msedge',
-    args: ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"],
+    args: edgeArgs,
   });
   const edgecontext = await edgebrowser.newContext();
   const edgepage = await edgecontext.newPage();
@@ -123,9 +156,9 @@ async function launchEdge() {
 }
 
 // Note: .then *hopefully ensures synchronicity
-async function runExperiment(call, reset, browserType) {
+async function runExperiment(call, reset, browserType, h3 = true) {
   await runTcCommand(call)
-  await launchBrowser(browserType)
+  await launchBrowser(browserType, h3)
   await runTcCommand(reset)
 }
 
