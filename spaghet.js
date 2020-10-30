@@ -7,7 +7,18 @@ reset = "sudo tc qdisc del dev lo root"
 
 networkInterface = "lo";
 
-runExperiment(call,reset,"firefox");
+
+(async ()=>{
+  // because otherwise our server won't necessarily be running
+  await exec(
+    "sudo systemctl restart nginx.service", 
+    (err, stdout, stderr) => {}
+  )
+  // run the same experiment 10 times
+  for (let i = 0; i < 10; i++) {
+    await runExperiment(call,reset,"firefox");
+  }
+})();
 
 async function launchBrowser (browerType) {
   if (browerType  ==  "firefox" ) {
@@ -48,6 +59,7 @@ function writeCSVFromPerformanceTiming(perfTiming) {
   const createCsvWriter = require('csv-writer').createObjectCsvWriter;
   const csvWriter = createCsvWriter({
     path: 'out.csv',
+    append: true,
     header: [
         {id: "navigationStart", title: "navigationStart"}, 
         {id: "unloadEventStart", title: "unloadEventStart"}, 
