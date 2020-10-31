@@ -10,9 +10,9 @@ h3_data = original_data[1:11,:]
 # the last 10 rows corresponds to 10 connections over h2
 h2_data = original_data[11:, :]
 
-# get the average of each column
-normalized_h3 = np.mean(h3_data, axis = 0)
-normalized_h2 = np.mean(h2_data, axis = 0)
+# get the median of each column
+normalized_h3 = np.median(h3_data, axis = 0)
+normalized_h2 = np.median(h2_data, axis = 0)
 
 timingParameters = [#"navigationStart",
 # "unloadEventStart",
