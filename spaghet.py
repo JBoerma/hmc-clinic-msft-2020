@@ -8,14 +8,6 @@ from args import getArguments
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
-arguments = getArguments()
-
-device = arguments.device
-options_list = arguments.options_list
-
-call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options_list[0])
-reset = RESET_FORMAT.format(DEVICE=device)
-
 
 timingParameters = [ 
     "startTime",
@@ -41,27 +33,38 @@ timingParameters = [
 def main():   
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
-    
-    csvFileName = "out.csv"
 
-    # Setup data file headers
-    with open(csvFileName, 'w', newline='\n') as outFile:
-        csvWriter = csv.writer(outFile)
-        csvWriter.writerow(timingParameters)
+    arguments = getArguments()
 
-    # run the same experiment 10 times over h3/h2
-    with sync_playwright() as p:
-        p: "SyncPlaywrightContextManager"
+    device = arguments.device
+    options_list = arguments.options_list
+    reset = RESET_FORMAT.format(DEVICE=device)
 
-        print("HTTP/3:")
-        for _ in range(10):
-            results = runExperiment(call, reset, p, "firefox", True)
-            writeData(results, csvFileName)
+    for options in options_list: 
+        call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
+        
+        csvFileName = "{}.csv".format(
+            "_".join(options.split(" "))
+        )
 
-        print("HTTP/2")
-        for _ in range(10):
-            results = runExperiment(call, reset, p, "firefox", False) 
-            writeData(results, csvFileName)
+        # Setup data file headers
+        with open(csvFileName, 'w', newline='\n') as outFile:
+            csvWriter = csv.writer(outFile)
+            csvWriter.writerow(timingParameters)
+
+        # run the same experiment 10 times over h3/h2
+        with sync_playwright() as p:
+            p: "SyncPlaywrightContextManager"
+
+            print("HTTP/3:")
+            for _ in range(10):
+                results = runExperiment(call, reset, p, "firefox", True)
+                writeData(results, csvFileName)
+
+            print("HTTP/2")
+            for _ in range(10):
+                results = runExperiment(call, reset, p, "firefox", False) 
+                writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
