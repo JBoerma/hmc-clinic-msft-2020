@@ -1,5 +1,8 @@
 import subprocess, csv, json
 from playwright import sync_playwright
+import multiprocessing as mp
+import psutil
+import time
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -30,7 +33,7 @@ timingParameters = [
     "loadEventEnd",
 ]
 
-def main():   
+def process1(process2Run):   
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
     
@@ -47,18 +50,46 @@ def main():
 
         print("HTTP/3:")
         for _ in range(10):
+            # signal process2 to collect cpu data
+            process2Run.value = 1
             results = runExperiment(call, reset, p, "firefox", True)
+            # signal process2 to stop collecting cpu data
+            process2Run.value = 2
             writeData(results, csvFileName)
 
         print("HTTP/2")
         for _ in range(10):
+            # signal process2 to collect cpu data
+            process2Run.value = 1
             results = runExperiment(call, reset, p, "firefox", False) 
+            # signal process2 to stop collecting cpu data
+            process2Run.value = 2
             writeData(results, csvFileName)
+    
+
+def process2(run):
+    currentCPUusage = []
+    cpuCSVfileName = "cpu.csv"
+    start_time = time.time()
+    while True:
+        print((time.time()-start_time)%100)
+        if (time.time() - start_time)%100 == 0:
+            if run.value == 1:
+                currentCPUusage.append(psutil.cpu_percent())
+            else:
+                writeCPUdata(currentCPUusage, cpuCSVfileName)
+                currentCPUusage = []
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=timingParameters, extrasaction='ignore')
         csvWriter.writerow(data)
+
+def writeCPUdata(data, csvFileName: str):
+    with open(csvFileName, 'w+', newline='\n') as outFile:
+        csvWriter = csv.writer(outFile)
+        csvWriter.writerow(data)
+    print("wrote to cpu.csv")
 
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -183,4 +214,11 @@ def runTcCommand(
         print("--------------------------")
 
 if __name__ == "__main__":
-    main()
+    process2Run = mp.Value("i", 1)
+    process2Stop = mp.Value("b", True)
+    p = mp.Process(target=process1, args=(process2Run,))
+    p.start()
+    p2 = mp.Process(target=process2, args = (process2Run,))
+    p2.start()
+    p.join()
+    p2.join()
