@@ -2,10 +2,12 @@ import subprocess, csv, json
 from playwright import sync_playwright
 
 # generated command line code
-call = "sudo tc qdisc add dev lo root netem delay 100ms 10ms 25%"
-reset = "sudo tc qdisc del dev lo root"
+CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
+RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
-networkInterface = "lo"
+call  = CALL_FORMAT.format(DEVICE="lo root", OPTIONS="delay 100ms 10ms 25%")
+reset = RESET_FORMAT.format(DEVICE="lo root")
+
 
 timingParameters = [ 
     "startTime",
@@ -122,7 +124,7 @@ def launchEdge(pwInstance, csvFile, url, h3):
     page = context.newPage()
     response = page.goto(url)
     print("Edge: ",response.headers()['version'])
-    
+
     # getting performance timing data
     # if we don't stringify and parse, things break
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
