@@ -12,6 +12,7 @@ class ArgsHolder:
     def __init__(self, namespace: argparse.Namespace): 
         self.device: str             = namespace.device 
         self.options_list: List[str] = [x.strip() for x in namespace.options.split(",")]
+        self.browsers: List[str]     = namespace.browsers
 
 
 def parseArguments() -> argparse.Namespace: 
@@ -21,16 +22,31 @@ def parseArguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--device",
-        help=(  "network device modified by tc command.\n" 
-                "default:\"%(default)s\""),
+        help=(
+            "network device modified by tc command.\n" 
+            "default:\"%(default)s\""
+        ),
         default="lo root",
     )
 
     parser.add_argument(
         "--options",
-        help=(  "NetEm options, comma-separated OPTIONS as specified by \"man netem\".\n" 
-                "default:\"%(default)s\""),
+        help=(
+            "NetEm options, comma-separated OPTIONS as specified by \"man netem\".\n" 
+            "default:\"%(default)s\""
+        ),
         default="delay 100ms 10ms 25%",
+    )
+
+    parser.add_argument(
+        "--browsers",
+        choices={"firefox", "chromium", "edge"},
+        nargs="*",
+        help=(
+            "Browsers used in experiment.\n"
+            "default:\"firefox chromium edge\""
+        ),
+        default=["firefox"]  # TODO - edge and chrome fail
     )
 
     return parser.parse_args()

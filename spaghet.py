@@ -38,33 +38,34 @@ def main():
 
     device = arguments.device
     options_list = arguments.options_list
+    browsers = arguments.browsers
     reset = RESET_FORMAT.format(DEVICE=device)
 
     for options in options_list: 
         call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
         
-        csvFileName = "{}.csv".format(
-            "_".join(options.split(" "))
-        )
+        for browser in browsers:
+            name = browser + "_" + options.replace(" ", "_")
+            csvFileName = "{}.csv".format(name)
 
-        # Setup data file headers
-        with open(csvFileName, 'w', newline='\n') as outFile:
-            csvWriter = csv.writer(outFile)
-            csvWriter.writerow(timingParameters)
+            # Setup data file headers
+            with open(csvFileName, 'w', newline='\n') as outFile:
+                csvWriter = csv.writer(outFile)
+                csvWriter.writerow(timingParameters)
 
-        # run the same experiment 10 times over h3/h2
-        with sync_playwright() as p:
-            p: "SyncPlaywrightContextManager"
+            # run the same experiment 10 times over h3/h2
+            with sync_playwright() as p:
+                p: "SyncPlaywrightContextManager"
 
-            print("HTTP/3:")
-            for _ in range(10):
-                results = runExperiment(call, reset, p, "firefox", True)
-                writeData(results, csvFileName)
+                print("HTTP/3:")
+                for _ in range(10):
+                    results = runExperiment(call, reset, p, browser, True)
+                    writeData(results, csvFileName)
 
-            print("HTTP/2")
-            for _ in range(10):
-                results = runExperiment(call, reset, p, "firefox", False) 
-                writeData(results, csvFileName)
+                print("HTTP/2")
+                for _ in range(10):
+                    results = runExperiment(call, reset, p, browser, False) 
+                    writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
