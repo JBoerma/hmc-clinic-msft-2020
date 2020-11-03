@@ -71,9 +71,9 @@ def process2(run):
     currentCPUusage = []
     cpuCSVfileName = "cpu.csv"
     start_time = time.time()
+    currentT = 0
     while True:
-        print((time.time()-start_time)%100)
-        if (time.time() - start_time)%100 == 0:
+        if (int(round((time.time() - start_time)*1000)))%10 == 0:
             if run.value == 1:
                 currentCPUusage.append(psutil.cpu_percent())
             else:
