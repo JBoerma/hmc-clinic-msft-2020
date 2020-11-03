@@ -13,6 +13,7 @@ class ArgsHolder:
         self.device: str             = namespace.device 
         self.options_list: List[str] = [x.strip() for x in namespace.options.split(",")]
         self.browsers: List[str]     = namespace.browsers
+        self.url: str                = namespace.url
 
 
 def parseArguments() -> argparse.Namespace: 
@@ -47,6 +48,15 @@ def parseArguments() -> argparse.Namespace:
             "default:\"firefox chromium edge\""
         ),
         default=["firefox"]  # TODO - edge and chrome fail
+    )
+
+    parser.add_argument(
+        "--url",
+        help=(
+            "URL for resource fetched in experiment.\n"
+            "default:\"%(default)s\""
+        ),
+        default="https://localhost"  # TODO - "version" header is not returned by most browsers, results in error!
     )
 
     return parser.parse_args()
