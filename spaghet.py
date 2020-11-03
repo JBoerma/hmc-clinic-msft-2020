@@ -86,7 +86,7 @@ def launchFirefox(
     url: str, 
     h3: bool,
 ) -> json:
-    firefoxPrefs = {}
+    firefoxPrefs = {"privacy.reduceTimerPrecision":False}
     if (h3):
         firefoxPrefs = {
             "network.http.http3.enabled":True,
