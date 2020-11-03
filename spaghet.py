@@ -1,12 +1,20 @@
+from typing import List
 import subprocess, csv, json
 from playwright import sync_playwright
+
+from args import getArguments
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
-call  = CALL_FORMAT.format(DEVICE="lo root", OPTIONS="delay 100ms 10ms 25%")
-reset = RESET_FORMAT.format(DEVICE="lo root")
+arguments = getArguments()
+
+device = arguments.device
+options_list = arguments.options_list
+
+call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options_list[0])
+reset = RESET_FORMAT.format(DEVICE=device)
 
 
 timingParameters = [ 
