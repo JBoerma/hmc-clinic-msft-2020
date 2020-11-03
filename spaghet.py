@@ -47,11 +47,13 @@ def main():
 
         print("HTTP/3:")
         for _ in range(10):
-            runExperiment(call, reset, p, "firefox", csvFileName, True)
+            results = runExperiment(call, reset, p, "firefox", True)
+            writeData(results, csvFileName)
 
         print("HTTP/2")
         for _ in range(10):
-            runExperiment(call, reset, p, "firefox", csvFileName, False) 
+            results = runExperiment(call, reset, p, "firefox", False) 
+            writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
@@ -61,23 +63,21 @@ def writeData(data: json, csvFileName: str):
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
     browserType: str,
-    csvFileName: str, 
     url: str, 
     h3: bool,
-):
+) -> json:
     if browserType  ==  "firefox":
-        launchFirefox(pwInstance, csvFileName, url, h3)
+        return launchFirefox(pwInstance, url, h3)
     elif browserType  ==  "chromium":
-        launchChromium(pwInstance, csvFileName, url, h3)
+        return launchChromium(pwInstance, url, h3)
     elif browserType  ==  "edge":
-        launchEdge(pwInstance, csvFileName, url, h3)
+        return launchEdge(pwInstance, url, h3)
 
 def launchFirefox(
     pwInstance: "SyncPlaywrightContextManager", 
-    csvFileName: str, 
     url: str, 
     h3: bool,
-):
+) -> json:
     firefoxPrefs = {}
     if (h3):
         firefoxPrefs = {
@@ -100,15 +100,14 @@ def launchFirefox(
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
     performanceTiming = json.loads(page.evaluate(timingFunction))
 
-    writeData(performanceTiming, csvFileName)
     browser.close()
+    return performanceTiming
 
 def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
-    csvFileName: str, 
     url: str, 
     h3: bool,
-):
+) -> json:
     chromiumArgs = []
     if (h3):
         chromiumArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"]
@@ -128,15 +127,14 @@ def launchChromium(
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
     performanceTiming = json.loads(page.evaluate(timingFunction))
     
-    writeData(performanceTiming, csvFileName)
     browser.close()
+    return performanceTiming
 
 def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
-    csvFileName: str, 
     url: str, 
     h3: bool,
-):
+) -> json:
     edgeArgs = []
     if (h3) :
         edgeArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"]
@@ -155,22 +153,23 @@ def launchEdge(
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
     performanceTiming = json.loads(page.evaluate(timingFunction))
     
-    writeData(performanceTiming, csvFileName)
     browser.close()
+    return performanceTiming
     
 def runExperiment(
     call: str, 
     reset: str, 
     pwInstance: "SyncPlaywrightContextManager", 
     browserType: str, 
-    csvFileName: str, 
     h3: bool,
-):
+) -> json:
     url = "https://localhost"
 
     runTcCommand(call)
-    launchBrowser(pwInstance, browserType, csvFileName, url, h3)
+    results = launchBrowser(pwInstance, browserType, url, h3)
     runTcCommand(reset)
+
+    return results
 
 
 def runTcCommand(
