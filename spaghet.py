@@ -7,24 +7,25 @@ reset = "sudo tc qdisc del dev lo root"
 
 networkInterface = "lo"
 
-timingParameters = [ "startTime",
-# "unloadEventStart",
-# "unloadEventEnd",
-"fetchStart",
-"domainLookupStart",
-"domainLookupEnd",
-"connectStart", 
-"secureConnectionStart",
-"connectEnd", 
-"requestStart", 
-"responseStart", 
- "responseEnd",
- "domInteractive",  
- "domContentLoadedEventStart", 
- "domContentLoadedEventEnd", 
- "domComplete", 
- "loadEventStart",
- "loadEventEnd"
+timingParameters = [ 
+    "startTime",
+    # "unloadEventStart",
+    # "unloadEventEnd",
+    "fetchStart",
+    "domainLookupStart",
+    "domainLookupEnd",
+    "connectStart", 
+    "secureConnectionStart",
+    "connectEnd", 
+    "requestStart", 
+    "responseStart", 
+    "responseEnd",
+    "domInteractive",  
+    "domContentLoadedEventStart", 
+    "domContentLoadedEventEnd", 
+    "domComplete", 
+    "loadEventStart",
+    "loadEventEnd",
 ]
 
 def main():   
@@ -39,11 +40,11 @@ def main():
     # run the same experiment 10 times over h3
     with sync_playwright() as p:
         print("HTTP/3:")
-        for i in range(10):
+        for _ in range(10):
             runExperiment(call,reset, p, "firefox", csvFile, True)
         print("HTTP/2")
         # run the same experiment 10 times over h2
-        for i in range(10):
+        for _ in range(10):
             runExperiment(call,reset, p, "firefox", csvFile, False) 
 
 def writeData(data, csvFile):
@@ -76,6 +77,7 @@ def launchFirefox(pwInstance, csvFile, url, h3):
     page = context.newPage()
     response = page.goto(url)
     print("Firefox: ",response.headers['version'])
+
     # getting performance timing data
     # if we don't stringify and parse, things break
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
@@ -98,6 +100,7 @@ def launchChromium(pwInstance, csvFile, url, h3):
     page = context.newPage()
     response = page.goto(url)
     print("Chromium: ",response.headers()['version'])
+
     # getting performance timing data
     # if we don't stringify and parse, things break
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
@@ -119,6 +122,7 @@ def launchEdge(pwInstance, csvFile, url, h3):
     page = context.newPage()
     response = page.goto(url)
     print("Edge: ",response.headers()['version'])
+    
     # getting performance timing data
     # if we don't stringify and parse, things break
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
