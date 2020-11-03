@@ -33,36 +33,51 @@ timingParameters = [
 def main():   
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
-    csvFile = "out.csv"
+    
+    csvFileName = "out.csv"
+
     # Setup data file headers
-    with open(csvFile, 'w', newline='\n') as outFile:
+    with open(csvFileName, 'w', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
         csvWriter.writerow(timingParameters)
 
-    # run the same experiment 10 times over h3
+    # run the same experiment 10 times over h3/h2
     with sync_playwright() as p:
+        p: "SyncPlaywrightContextManager"
+
         print("HTTP/3:")
         for _ in range(10):
-            runExperiment(call,reset, p, "firefox", csvFile, True)
-        print("HTTP/2")
-        # run the same experiment 10 times over h2
-        for _ in range(10):
-            runExperiment(call,reset, p, "firefox", csvFile, False) 
+            runExperiment(call, reset, p, "firefox", csvFileName, True)
 
-def writeData(data, csvFile):
-    with open(csvFile, 'a+', newline='\n') as outFile:
+        print("HTTP/2")
+        for _ in range(10):
+            runExperiment(call, reset, p, "firefox", csvFileName, False) 
+
+def writeData(data: json, csvFileName: str):
+    with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=timingParameters, extrasaction='ignore')
         csvWriter.writerow(data)
 
-def launchBrowser (pwInstance, browerType, csvFile, url, h3):
-    if browerType  ==  "firefox":
-        launchFirefox(pwInstance, csvFile, url, h3)
-    elif browerType  ==  "chromium":
-        launchChromium(pwInstance, csvFile, url, h3)
-    elif browerType  ==  "edge":
-        launchEdge(pwInstance, csvFile, url, h3)
+def launchBrowser(
+    pwInstance: "SyncPlaywrightContextManager", 
+    browserType: str,
+    csvFileName: str, 
+    url: str, 
+    h3: bool,
+):
+    if browserType  ==  "firefox":
+        launchFirefox(pwInstance, csvFileName, url, h3)
+    elif browserType  ==  "chromium":
+        launchChromium(pwInstance, csvFileName, url, h3)
+    elif browserType  ==  "edge":
+        launchEdge(pwInstance, csvFileName, url, h3)
 
-def launchFirefox(pwInstance, csvFile, url, h3):
+def launchFirefox(
+    pwInstance: "SyncPlaywrightContextManager", 
+    csvFileName: str, 
+    url: str, 
+    h3: bool,
+):
     firefoxPrefs = {}
     if (h3):
         firefoxPrefs = {
@@ -85,10 +100,15 @@ def launchFirefox(pwInstance, csvFile, url, h3):
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
     performanceTiming = json.loads(page.evaluate(timingFunction))
 
-    writeData(performanceTiming, csvFile)
+    writeData(performanceTiming, csvFileName)
     browser.close()
 
-def launchChromium(pwInstance, csvFile, url, h3):
+def launchChromium(
+    pwInstance: "SyncPlaywrightContextManager", 
+    csvFileName: str, 
+    url: str, 
+    h3: bool,
+):
     chromiumArgs = []
     if (h3):
         chromiumArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"]
@@ -108,10 +128,15 @@ def launchChromium(pwInstance, csvFile, url, h3):
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
     performanceTiming = json.loads(page.evaluate(timingFunction))
     
-    writeData(performanceTiming, csvFile)
+    writeData(performanceTiming, csvFileName)
     browser.close()
 
-def launchEdge(pwInstance, csvFile, url, h3):
+def launchEdge(
+    pwInstance: "SyncPlaywrightContextManager", 
+    csvFileName: str, 
+    url: str, 
+    h3: bool,
+):
     edgeArgs = []
     if (h3) :
         edgeArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"]
@@ -130,18 +155,27 @@ def launchEdge(pwInstance, csvFile, url, h3):
     timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
     performanceTiming = json.loads(page.evaluate(timingFunction))
     
-    writeData(performanceTiming, csvFile)
+    writeData(performanceTiming, csvFileName)
     browser.close()
     
-def runExperiment(call, reset, pwInstance, browserType, csvFile, h3):
+def runExperiment(
+    call: str, 
+    reset: str, 
+    pwInstance: "SyncPlaywrightContextManager", 
+    browserType: str, 
+    csvFileName: str, 
+    h3: bool,
+):
     url = "https://localhost"
 
     runTcCommand(call)
-    launchBrowser(pwInstance, browserType, csvFile, url, h3)
+    launchBrowser(pwInstance, browserType, csvFileName, url, h3)
     runTcCommand(reset)
 
 
-def runTcCommand(command : str):
+def runTcCommand(
+    command: str,
+):
     result = subprocess.run(command.split())
     if result.returncode > 0:
         print("Issue running TC!")
