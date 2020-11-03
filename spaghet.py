@@ -39,6 +39,7 @@ def main():
     device = arguments.device
     options_list = arguments.options_list
     browsers = arguments.browsers
+    url = arguments.url
     reset = RESET_FORMAT.format(DEVICE=device)
 
     for options in options_list: 
@@ -59,12 +60,12 @@ def main():
 
                 print("HTTP/3:")
                 for _ in range(10):
-                    results = runExperiment(call, reset, p, browser, True)
+                    results = runExperiment(call, reset, p, browser, True, url)
                     writeData(results, csvFileName)
 
                 print("HTTP/2")
                 for _ in range(10):
-                    results = runExperiment(call, reset, p, browser, False) 
+                    results = runExperiment(call, reset, p, browser, False, url) 
                     writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
@@ -174,9 +175,8 @@ def runExperiment(
     pwInstance: "SyncPlaywrightContextManager", 
     browserType: str, 
     h3: bool,
+    url: str,
 ) -> json:
-    url = "https://localhost"
-
     runTcCommand(call)
     results = launchBrowser(pwInstance, browserType, url, h3)
     runTcCommand(reset)
