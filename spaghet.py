@@ -93,9 +93,10 @@ def launchFirefox(
 ) -> json:
     firefoxPrefs = {"privacy.reduceTimerPrecision":False}
     if (h3):
+        domain = url if "https://" not in url else url[8:]
         firefoxPrefs = {
             "network.http.http3.enabled":True,
-            "network.http.http3.alt-svc-mapping-for-testing":"localhost;h3-29=:443",
+            "network.http.http3.alt-svc-mapping-for-testing":f"{domain};h3-29=:443",
             "privacy.reduceTimerPrecision":False
         }
     browser = pwInstance.firefox.launch(
@@ -123,7 +124,8 @@ def launchChromium(
 ) -> json:
     chromiumArgs = []
     if (h3):
-        chromiumArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"]
+        domain = url if "https://" not in url else url[8:]
+        chromiumArgs = ["--enable-quic", f"--origin-to-force-quic-on={domain}:443", "--quic-version=h3-29"]
 
     browser =  pwInstance.chromium.launch(
         headless=True,
@@ -133,7 +135,7 @@ def launchChromium(
     context = browser.newContext()
     page = context.newPage()
     response = page.goto(url)
-    print("Chromium: ",response.headers()['version'])
+    print("Chromium: ",response.headers['version'])
 
     # getting performance timing data
     # if we don't stringify and parse, things break
@@ -150,7 +152,8 @@ def launchEdge(
 ) -> json:
     edgeArgs = []
     if (h3) :
-        edgeArgs = ["--enable-quic", "--origin-to-force-quic-on=localhost:443", "--quic-version=h3-29"]
+        domain = url if "https://" not in url else url[8:]
+        edgeArgs = ["--enable-quic", f"--origin-to-force-quic-on={domain}:443", "--quic-version=h3-29"]
     browser = pwInstance.chromium.launch(
         headless=True,
         executablePath='/opt/microsoft/msedge-dev/msedge',
@@ -159,7 +162,7 @@ def launchEdge(
     context = browser.newContext()
     page = context.newPage()
     response = page.goto(url)
-    print("Edge: ",response.headers()['version'])
+    print("Edge: ",response.headers['version'])
 
     # getting performance timing data
     # if we don't stringify and parse, things break
