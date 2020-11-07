@@ -1,9 +1,5 @@
 *.csv
 
-# npm
-package-lock.json
-node_modules
-
 # vscode
 *.vscode
 *.code-workspace
