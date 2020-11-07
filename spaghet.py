@@ -40,6 +40,8 @@ def main():
     options_list = arguments.options_list
     browsers = arguments.browsers
     url = arguments.url
+    runs = arguments.runs
+
     reset = RESET_FORMAT.format(DEVICE=device)
 
     for options in options_list: 
@@ -47,24 +49,24 @@ def main():
         
         for browser in browsers:
             name = browser + "_" + options.replace(" ", "_")
-            csvFileName = "{}.csv".format(name)
+            csvFileName = f"{name}.csv"
 
             # Setup data file headers
             with open(csvFileName, 'w', newline='\n') as outFile:
                 csvWriter = csv.writer(outFile)
                 csvWriter.writerow(timingParameters)
 
-            # run the same experiment 10 times over h3/h2
+            # run the same experiment multiple times over h3/h2
             with sync_playwright() as p:
                 p: "SyncPlaywrightContextManager"
 
                 print("HTTP/3:")
-                for _ in range(10):
+                for _ in range(runs):
                     results = runExperiment(call, reset, p, browser, True, url)
                     writeData(results, csvFileName)
 
                 print("HTTP/2")
-                for _ in range(10):
+                for _ in range(runs):
                     results = runExperiment(call, reset, p, browser, False, url) 
                     writeData(results, csvFileName)
 
