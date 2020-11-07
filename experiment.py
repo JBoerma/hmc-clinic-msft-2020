@@ -1,5 +1,6 @@
 from typing import List
 import subprocess, csv, json
+import os
 from playwright import sync_playwright
 
 from args import getArguments
@@ -49,9 +50,11 @@ def main():
         
         for browser in browsers:
             name = browser + "_" + options.replace(" ", "_")
-            csvFileName = f"{name}.csv"
+            directoryPath = "results"
+            csvFileName = f"{directoryPath}/{name}.csv"
 
             # Setup data file headers
+            os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
             with open(csvFileName, 'w', newline='\n') as outFile:
                 csvWriter = csv.writer(outFile)
                 csvWriter.writerow(timingParameters)
