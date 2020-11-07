@@ -1,4 +1,4 @@
-import argparse
+import argparse # TODO: docopt
 from typing import List
 
 
@@ -14,6 +14,7 @@ class ArgsHolder:
         self.options_list: List[str] = [x.strip() for x in namespace.options.split(",")]
         self.browsers: List[str]     = namespace.browsers
         self.url: str                = namespace.url
+        self.runs: int               = namespace.runs
 
 
 def parseArguments() -> argparse.Namespace: 
@@ -21,6 +22,7 @@ def parseArguments() -> argparse.Namespace:
         description="Run H2/H3 Experiment",
         epilog="Usage:..."
     )
+
     parser.add_argument(
         "--device",
         help=(
@@ -47,7 +49,7 @@ def parseArguments() -> argparse.Namespace:
             "Browsers used in experiment.\n"
             "default:\"firefox chromium edge\""
         ),
-        default=["firefox"]  # TODO - edge and chrome fail
+        default=["firefox"],  # TODO - edge and chrome fail
     )
 
     parser.add_argument(
@@ -56,7 +58,17 @@ def parseArguments() -> argparse.Namespace:
             "URL for resource fetched in experiment.\n"
             "default:\"%(default)s\""
         ),
-        default="https://localhost"  # TODO - "version" header is not returned by most browsers, results in error!
+        default="https://localhost",  # TODO - "version" header is not returned by most browsers, results in error!
+    )
+
+    parser.add_argument(
+        "--runs",
+        type=int,
+        help=(
+            "Integer: Specify number of runs for experiment.\n"
+            "default:\"%(default)s\""
+        ),
+        default=10,
     )
 
     return parser.parse_args()
