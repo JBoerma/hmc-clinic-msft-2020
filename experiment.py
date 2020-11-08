@@ -4,16 +4,18 @@ Usage:
     experiment.py JSON_FILE [options]
 
 Arguments:
-    JSON_FILE                   JSON file specifying options
+    JSON_FILE           JSON file specifying options
 
 Options:
-    -h --help                   Show this screen 
+    -h --help           Show this screen 
+    --enable_caching    Enables caching
 """
 from typing import List
 import subprocess, csv, json
 import os
 from playwright import sync_playwright
 from docopt import docopt
+import cache_control
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -42,9 +44,7 @@ timingParameters = [
 ]
 
 def main():   
-    # Make sure server is running
-    subprocess.run("sudo systemctl restart nginx.service".split())
-
+    # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     JSON_FILE=args['JSON_FILE']
     f = open(JSON_FILE,'r')
@@ -56,6 +56,13 @@ def main():
     browsers = options['browsers']
     url = options['url']
     runs = options['runs']
+
+    if args['--enable_caching']:
+        # Assumes that there is no server caching
+        cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
+
+    # Make sure server is running
+    subprocess.run("sudo systemctl restart nginx.service".split())
 
     reset = RESET_FORMAT.format(DEVICE=device)
 
@@ -86,6 +93,11 @@ def main():
                 for _ in range(runs):
                     results = runExperiment(call, reset, p, browser, False, url) 
                     writeData(results, csvFileName)
+
+    if args['--enable_caching']:
+        # Assumes that there is server caching
+        cache_control.remove_server_caching("/usr/local/nginx/conf/nginx.conf", 23)
+
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
