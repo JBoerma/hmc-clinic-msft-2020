@@ -1,9 +1,19 @@
+"""QUIC Experiment Harness
+
+Usage:
+    experiment.py JSON_FILE [options]
+
+Arguments:
+    JSON_FILE                   JSON file specifying options
+
+Options:
+    -h --help                   Show this screen 
+"""
 from typing import List
 import subprocess, csv, json
 import os
 from playwright import sync_playwright
-
-from args import getArguments
+from docopt import docopt
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -35,19 +45,23 @@ def main():
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
-    arguments = getArguments()
+    args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
+    JSON_FILE=args['JSON_FILE']
+    f = open(JSON_FILE,'r')
+    options = json.load(f)
+    f.close()
 
-    device = arguments.device
-    options_list = arguments.options_list
-    browsers = arguments.browsers
-    url = arguments.url
-    runs = arguments.runs
+    device = options['device']
+    options_list = options['options_list']
+    browsers = options['browsers']
+    url = options['url']
+    runs = options['runs']
 
     reset = RESET_FORMAT.format(DEVICE=device)
 
     for options in options_list: 
         call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
-        
+
         for browser in browsers:
             name = browser + "_" + options.replace(" ", "_")
             directoryPath = "results"
@@ -68,7 +82,7 @@ def main():
                     results = runExperiment(call, reset, p, browser, True, url)
                     writeData(results, csvFileName)
 
-                print("HTTP/2")
+                print("HTTP/2:")
                 for _ in range(runs):
                     results = runExperiment(call, reset, p, browser, False, url) 
                     writeData(results, csvFileName)
@@ -203,4 +217,5 @@ def runTcCommand(
         print("--------------------------")
 
 if __name__ == "__main__":
+
     main()
