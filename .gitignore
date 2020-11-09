@@ -6,3 +6,7 @@
 
 # python
 *pycache*
+
+# results and data analysis
+*.png 
+results
