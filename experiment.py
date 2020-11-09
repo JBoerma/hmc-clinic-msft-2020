@@ -13,6 +13,7 @@ RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 experimentParameters = [
     "experimentID",
     "netemParams", # TODO: think about better encoding
+    "httpVersion", 
 ]
 timingParameters = [ 
     "startTime",
@@ -75,6 +76,7 @@ def main():
                     results = runExperiment(call, reset, p, browser, True, url)
                     results["experimentID"] = experimentID
                     results["netemParams"] = netemParams
+                    results["httpVersion"] = "h3"
                     writeData(results, csvFileName)
 
                 print("HTTP/2")
@@ -82,6 +84,7 @@ def main():
                     results = runExperiment(call, reset, p, browser, False, url) 
                     results["experimentID"] = experimentID
                     results["netemParams"] = netemParams
+                    results["httpVersion"] = "h2"
                     writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
