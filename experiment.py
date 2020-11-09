@@ -3,8 +3,10 @@ import subprocess, csv, json
 import os
 from playwright import sync_playwright
 import time
+import random
 
 from args import getArguments
+
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -66,25 +68,17 @@ def main():
             with open(csvFileName, 'w', newline='\n') as outFile:
                 csvWriter = csv.writer(outFile)
                 csvWriter.writerow(parameters)
+            
+            whenRunH3 = runs * [True] + runs * [False]
+            random.shuffle(whenRunH3)
 
             # run the same experiment multiple times over h3/h2
             with sync_playwright() as p:
-                p: "SyncPlaywrightContextManager"
-
-                print("HTTP/3:")
-                for _ in range(runs):
-                    results = runExperiment(call, reset, p, browser, True, url)
+                for useH3 in whenRunH3:
+                    results = runExperiment(call, reset, p, browser, useH3, url)
                     results["experimentID"] = experimentID
                     results["netemParams"] = netemParams
-                    results["httpVersion"] = "h3"
-                    writeData(results, csvFileName)
-
-                print("HTTP/2")
-                for _ in range(runs):
-                    results = runExperiment(call, reset, p, browser, False, url) 
-                    results["experimentID"] = experimentID
-                    results["netemParams"] = netemParams
-                    results["httpVersion"] = "h2"
+                    results["httpVersion"] = "h3" if useH3 else "h2"
                     writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
