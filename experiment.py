@@ -2,6 +2,7 @@ from typing import List
 import subprocess, csv, json
 import os
 from playwright import sync_playwright
+import time
 
 from args import getArguments
 
@@ -9,7 +10,10 @@ from args import getArguments
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
-
+experimentParameters = [
+    "experimentID",
+    "netemParams", # TODO: think about better encoding
+]
 timingParameters = [ 
     "startTime",
     # "unloadEventStart",
@@ -30,6 +34,7 @@ timingParameters = [
     "loadEventStart",
     "loadEventEnd",
 ]
+parameters = experimentParameters + timingParameters
 
 def main():   
     # Make sure server is running
@@ -47,6 +52,8 @@ def main():
 
     for options in options_list: 
         call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
+        experimentID = int(time.time()) # ensures no repeats
+        netemParams = options
         
         for browser in browsers:
             name = browser + "_" + options.replace(" ", "_")
@@ -57,7 +64,7 @@ def main():
             os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
             with open(csvFileName, 'w', newline='\n') as outFile:
                 csvWriter = csv.writer(outFile)
-                csvWriter.writerow(timingParameters)
+                csvWriter.writerow(parameters)
 
             # run the same experiment multiple times over h3/h2
             with sync_playwright() as p:
@@ -66,16 +73,20 @@ def main():
                 print("HTTP/3:")
                 for _ in range(runs):
                     results = runExperiment(call, reset, p, browser, True, url)
+                    results["experimentID"] = experimentID
+                    results["netemParams"] = netemParams
                     writeData(results, csvFileName)
 
                 print("HTTP/2")
                 for _ in range(runs):
                     results = runExperiment(call, reset, p, browser, False, url) 
+                    results["experimentID"] = experimentID
+                    results["netemParams"] = netemParams
                     writeData(results, csvFileName)
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
-        csvWriter = csv.DictWriter(outFile, fieldnames=timingParameters, extrasaction='ignore')
+        csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
 
 def launchBrowser(
