@@ -3,8 +3,8 @@ import time
 import signal
 import csv
 from datetime import datetime
-cpuCSVfileName = "cpu.csv"
-memoryCSVfileName = "memory.csv"
+cpuCSVfileName = "result/cpu.csv"
+memoryCSVfileName = "result/memory.csv"
 
 def writeData(data, csvFileName: str):
     with open(csvFileName, 'a', newline='\n') as outFile:
