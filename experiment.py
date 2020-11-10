@@ -2,17 +2,11 @@ from typing import List
 import subprocess, csv, json
 import os
 from playwright import sync_playwright
-<<<<<<< HEAD:experiment.py
 import time
 import random
 
 from args import getArguments
 
-=======
-import multiprocessing as mp
-import psutil
-import time
->>>>>>> add initial cpu measurement:spaghet.py
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -49,7 +43,6 @@ def process1(process2Run):
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
-<<<<<<< HEAD:experiment.py
     arguments = getArguments()
 
     device = arguments.device
@@ -87,39 +80,6 @@ def process1(process2Run):
                     results["netemParams"] = netemParams
                     results["httpVersion"] = "h3" if useH3 else "h2"
                     writeData(results, csvFileName)
-=======
-        print("HTTP/3:")
-        for _ in range(10):
-            # signal process2 to collect cpu data
-            process2Run.value = 1
-            results = runExperiment(call, reset, p, "firefox", True)
-            # signal process2 to stop collecting cpu data
-            process2Run.value = 2
-            writeData(results, csvFileName)
-
-        print("HTTP/2")
-        for _ in range(10):
-            # signal process2 to collect cpu data
-            process2Run.value = 1
-            results = runExperiment(call, reset, p, "firefox", False) 
-            # signal process2 to stop collecting cpu data
-            process2Run.value = 2
-            writeData(results, csvFileName)
-    
-
-def process2(run):
-    currentCPUusage = []
-    cpuCSVfileName = "cpu.csv"
-    start_time = time.time()
-    currentT = 0
-    while True:
-        if (int(round((time.time() - start_time)*1000)))%10 == 0:
-            if run.value == 1:
-                currentCPUusage.append(psutil.cpu_percent())
-            else:
-                writeCPUdata(currentCPUusage, cpuCSVfileName)
-                currentCPUusage = []
->>>>>>> add initial cpu measurement:spaghet.py
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
@@ -256,12 +216,12 @@ def runTcCommand(
         print(result.stderr)
         print("--------------------------")
 
-if __name__ == "__main__":
-    process2Run = mp.Value("i", 1)
-    process2Stop = mp.Value("b", True)
-    p = mp.Process(target=process1, args=(process2Run,))
-    p.start()
-    p2 = mp.Process(target=process2, args = (process2Run,))
-    p2.start()
-    p.join()
-    p2.join()
+# if __name__ == "__main__":
+#     process2Run = mp.Value("i", 1)
+#     process2Stop = mp.Value("b", True)
+#     p = mp.Process(target=process1, args=(process2Run,))
+#     p.start()
+#     p2 = mp.Process(target=process2, args = (process2Run,))
+#     p2.start()
+#     p.join()
+#     p2.join()
