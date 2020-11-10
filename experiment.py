@@ -39,7 +39,8 @@ timingParameters = [
 ]
 parameters = experimentParameters + timingParameters
 
-def process1(process2Run):   
+def main():   
+    print (os.getpid())
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
@@ -59,7 +60,7 @@ def process1(process2Run):
         netemParams = options
         
         for browser in browsers:
-            name = browser + "_" + options.replace(" ", "_")
+            name = browser + "" + options.replace(" ", "")
             directoryPath = "results"
             csvFileName = f"{directoryPath}/{name}.csv"
 
@@ -85,12 +86,6 @@ def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
-
-def writeCPUdata(data, csvFileName: str):
-    with open(csvFileName, 'w+', newline='\n') as outFile:
-        csvWriter = csv.writer(outFile)
-        csvWriter.writerow(data)
-    print("wrote to cpu.csv")
 
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -216,12 +211,5 @@ def runTcCommand(
         print(result.stderr)
         print("--------------------------")
 
-# if __name__ == "__main__":
-#     process2Run = mp.Value("i", 1)
-#     process2Stop = mp.Value("b", True)
-#     p = mp.Process(target=process1, args=(process2Run,))
-#     p.start()
-#     p2 = mp.Process(target=process2, args = (process2Run,))
-#     p2.start()
-#     p.join()
-#     p2.join()
+if __name__ == "__main__":
+    main()
