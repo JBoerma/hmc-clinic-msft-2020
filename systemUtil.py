@@ -10,7 +10,7 @@ def writeData(data, csvFileName: str):
     with open(csvFileName, 'a', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
         csvWriter.writerow(data)
-    print("wrote to cpu.csv")
+    print("wrote to {}".format(csvFileName))
 
 def getTime():
     return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
