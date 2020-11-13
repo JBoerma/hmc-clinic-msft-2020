@@ -3,14 +3,45 @@ import time
 import signal
 import csv
 from datetime import datetime
-cpuCSVfileName = "result/cpu.csv"
-memoryCSVfileName = "result/memory.csv"
-
+import os
+cpuCSVfileName = "results/cpu.csv"
+memoryCSVfileName = "results/memory.csv"
+systemUtilLog = "results/systemUtilLog.csv"
+hz = os.sysconf('SC_CLK_TCK')
 def writeData(data, csvFileName: str):
     with open(csvFileName, 'a', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
-        csvWriter.writerow(data)
+        for row in data:
+            csvWriter.writerow(row)
     print("wrote to {}".format(csvFileName))
+
+def getDataFromPsutil():
+    procsCPU = []
+    procsMemory = []
+    procsList = []
+    for proc in psutil.process_iter():
+        if proc.name() == 'firefox' or proc.name() == '(chromium)' or proc.name()  == '(edge)':
+            procsCPU.append(proc.cpu_percent)
+            procsMemory.append(proc.memory_percent)
+            procsList.append(proc.name())
+    return procsList, procsCPU, procsMemory
+
+def getDataFromKeranl():
+    procs = os.listdir('/proc')
+    procsCPU = []
+    procsMemory = []
+    procsList = []
+    for proc in procs:
+        if proc.isnumeric():
+            with open('/proc/'+proc+'/stat', 'r') as f:
+                data = f.read()
+            stat = data.split()
+            if stat[1] == '(firefox)' or stat[1] == '(chromium)' or stat[1] == '(edge)':
+                procsCPU.append(int(stat[13])/hz)
+                procsMemory.append(stat[22])
+                procsList.append(stat[1])
+    return procsList, procsCPU, procsMemory
+
 
 def getTime():
     return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -43,16 +74,21 @@ if __name__ == "__main__":
     currentCPUusage = []
     currentTime = []
     currentMemoryUsage = []
+    currentProcNames = []
     while not killer.kill_now:
         time.sleep(1)
-        currentTime.append(getTime())
-        currentCPUusage.append(psutil.cpu_percent())
-        currentMemoryUsage.append(psutil.virtual_memory().percent)
+        # getDataFromPsutil()
+        procsList, procsCPU, procsMemory = getDataFromPsutil()
+        for i in range(len(procsList)):
+            currentTime.append(getTime())
+        currentCPUusage+=procsCPU
+        currentMemoryUsage += procsMemory
+        currentProcNames+=procsList
+        # currentCPUusage.append(psutil.cpu_percent())
+        # currentMemoryUsage.append(psutil.virtual_memory().percent)
         print("ideally appending into an array")
-    writeData(currentTime, cpuCSVfileName)
-    writeData(currentCPUusage, cpuCSVfileName)
-    writeData(currentTime, memoryCSVfileName)
-    writeData(currentCPUusage, memoryCSVfileName)
+    zipall = zip(currentTime, currentProcNames, currentCPUusage, currentMemoryUsage)
+    writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")
 
 # utility usauge for a single process
