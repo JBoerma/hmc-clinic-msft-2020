@@ -75,7 +75,7 @@ def main():
             # run the same experiment multiple times over h3/h2
             with sync_playwright() as p:
                 for useH3 in whenRunH3:
-                    results = runExperiment(call, reset, p, browser, useH3, url)
+                    results = runExperiment(call, reset, p, browser, useH3, url, warmup=True)
                     results["experimentID"] = experimentID
                     results["netemParams"] = netemParams
                     results["httpVersion"] = "h3" if useH3 else "h2"
@@ -86,23 +86,33 @@ def writeData(data: json, csvFileName: str):
         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
 
+def warmupIfSpecified(
+    playwrightPage: "Page",
+    url: str,
+    warmup: bool,
+) -> None: 
+    if warmup:
+        playwrightPage.goto(url)
+
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
     browserType: str,
     url: str, 
     h3: bool,
+    warmup: bool,
 ) -> json:
     if browserType  ==  "firefox":
-        return launchFirefox(pwInstance, url, h3)
+        return launchFirefox(pwInstance, url, h3, warmup)
     elif browserType  ==  "chromium":
-        return launchChromium(pwInstance, url, h3)
+        return launchChromium(pwInstance, url, h3, warmup)
     elif browserType  ==  "edge":
-        return launchEdge(pwInstance, url, h3)
+        return launchEdge(pwInstance, url, h3, warmup)
 
 def launchFirefox(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
     h3: bool,
+    warmup: bool,
 ) -> json:
     firefoxPrefs = {"privacy.reduceTimerPrecision":False}
     if (h3):
@@ -119,6 +129,7 @@ def launchFirefox(
 
     context = browser.newContext()
     page = context.newPage()
+    warmupIfSpecified(page, url, warmup)
     response = page.goto(url)
     print("Firefox: ",response.headers['version'])
 
@@ -134,6 +145,7 @@ def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
     h3: bool,
+    warmup: bool,
 ) -> json:
     chromiumArgs = []
     if (h3):
@@ -147,6 +159,7 @@ def launchChromium(
     context = browser.newContext()
     context = browser.newContext()
     page = context.newPage()
+    warmupIfSpecified(page, url, warmup)
     response = page.goto(url)
     print("Chromium: ",response.headers['version'])
 
@@ -162,6 +175,7 @@ def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
     h3: bool,
+    warmup: bool,
 ) -> json:
     edgeArgs = []
     if (h3) :
@@ -174,6 +188,7 @@ def launchEdge(
     )
     context = browser.newContext()
     page = context.newPage()
+    warmupIfSpecified(page, url, warmup)
     response = page.goto(url)
     print("Edge: ",response.headers['version'])
 
@@ -192,9 +207,10 @@ def runExperiment(
     browserType: str, 
     h3: bool,
     url: str,
+    warmup: bool,
 ) -> json:
     runTcCommand(call)
-    results = launchBrowser(pwInstance, browserType, url, h3)
+    results = launchBrowser(pwInstance, browserType, url, h3, True)
     runTcCommand(reset)
 
     return results
