@@ -1,14 +1,18 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py JSON_FILE [options]
-
+    experiment.py experiment.py --device DEVICE --options OPTIONS --browsers BROWSERS --url URL --runs RUNS [options]
+    
 Arguments:
-    JSON_FILE           JSON file specifying options
+    --device DEVICE           Network device to modify [default: lo root]
+    --options OPTIONS         tc-netem conditions to apply [default: delay 0ms]
+    --browsers BROWSERS       List of browsers to test [default: firefox,chromium,edge]
+    --url URL                 URL to access [default: https://localhost]
+    --runs RUNS               Number of runs in the experiment [default: 1]
 
 Options:
-    -h --help           Show this screen 
-    --enable_caching    Enables caching
+    -h --help                 Show this screen 
+    --disable_caching         Disables caching
 """
 from typing import List
 import subprocess, csv, json
@@ -20,7 +24,6 @@ import cache_control
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
-
 
 timingParameters = [ 
     "startTime",
@@ -46,63 +49,56 @@ timingParameters = [
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
-    JSON_FILE=args['JSON_FILE']
-    f = open(JSON_FILE,'r')
-    options = json.load(f)
-    f.close()
+    device = args['--device']
+    options = args['--options']
+    browsers = args['--browsers'].split(",")
+    url = args['--url']
+    runs = int(args['--runs'])
 
-    device = options['device']
-    options_list = options['options_list']
-    browsers = options['browsers']
-    url = options['url']
-    runs = options['runs']
-
-    if args['--enable_caching']:
-        # Assumes that there is no server caching
-        cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
+    if args['--disable_caching']:
+        # Assumes that there is server caching by default
+        cache_control.remove_server_caching("/usr/local/nginx/conf/nginx.conf", 23)
 
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
     reset = RESET_FORMAT.format(DEVICE=device)
+    call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
 
-    for options in options_list: 
-        call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
+    for browser in browsers:
+        name = browser + "_" + options.replace(" ", "_")
+        directoryPath = "results"
+        csvFileName = f"{directoryPath}/{name}.csv"
 
-        for browser in browsers:
-            name = browser + "_" + options.replace(" ", "_")
-            directoryPath = "results"
-            csvFileName = f"{directoryPath}/{name}.csv"
+        # Setup data file headers
+        os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
+        with open(csvFileName, 'w', newline='\n') as outFile:
+            csvWriter = csv.writer(outFile)
+            csvWriter.writerow(timingParameters)
 
-            # Setup data file headers
-            os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
-            with open(csvFileName, 'w', newline='\n') as outFile:
-                csvWriter = csv.writer(outFile)
-                csvWriter.writerow(timingParameters)
+        # run the same experiment multiple times over h3/h2
+        with sync_playwright() as p:
+            p: "SyncPlaywrightContextManager"
 
-            # run the same experiment multiple times over h3/h2
-            with sync_playwright() as p:
-                p: "SyncPlaywrightContextManager"
+            print("HTTP/3:")
+            for _ in range(runs):
+                results = runExperiment(call, reset, p, browser, True, url)
+                writeData(results, csvFileName)
 
-                print("HTTP/3:")
-                for _ in range(runs):
-                    results = runExperiment(call, reset, p, browser, True, url)
-                    writeData(results, csvFileName)
+            print("HTTP/2:")
+            for _ in range(runs):
+                results = runExperiment(call, reset, p, browser, False, url) 
+                writeData(results, csvFileName)
 
-                print("HTTP/2:")
-                for _ in range(runs):
-                    results = runExperiment(call, reset, p, browser, False, url) 
-                    writeData(results, csvFileName)
-
-    if args['--enable_caching']:
-        # Assumes that there is server caching
-        cache_control.remove_server_caching("/usr/local/nginx/conf/nginx.conf", 23)
+    if args['--disable_caching']: #re-enable server caching
+        cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
 
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=timingParameters, extrasaction='ignore')
         csvWriter.writerow(data)
+
 
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -116,6 +112,7 @@ def launchBrowser(
         return launchChromium(pwInstance, url, h3)
     elif browserType  ==  "edge":
         return launchEdge(pwInstance, url, h3)
+
 
 def launchFirefox(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -134,7 +131,6 @@ def launchFirefox(
         headless=True,
         firefoxUserPrefs=firefoxPrefs,
     )
-
     context = browser.newContext()
     page = context.newPage()
     response = page.goto(url)
@@ -147,6 +143,7 @@ def launchFirefox(
 
     browser.close()
     return performanceTiming
+
 
 def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -176,6 +173,7 @@ def launchChromium(
     browser.close()
     return performanceTiming
 
+
 def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
@@ -203,6 +201,7 @@ def launchEdge(
     browser.close()
     return performanceTiming
     
+
 def runExperiment(
     call: str, 
     reset: str, 
@@ -227,6 +226,7 @@ def runTcCommand(
         print(result.args)
         print(result.stderr)
         print("--------------------------")
+
 
 if __name__ == "__main__":
 
