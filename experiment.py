@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py --device DEVICE --options OPTIONS --browsers BROWSERS --url URL --runs RUNS [options]
+    experiment.py experiment.py [--device DEVICE] [--options OPTIONS] [--browsers BROWSERS] [--url URL] [--runs RUNS] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo root]
@@ -20,11 +20,21 @@ import os
 from playwright import sync_playwright
 from docopt import docopt
 import cache_control
+import time
+import random
+
+from args import getArguments
+
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
+experimentParameters = [
+    "experimentID",
+    "netemParams", # TODO: think about better encoding
+    "httpVersion", 
+]
 timingParameters = [ 
     "startTime",
     # "unloadEventStart",
@@ -45,6 +55,7 @@ timingParameters = [
     "loadEventStart",
     "loadEventEnd",
 ]
+parameters = experimentParameters + timingParameters
 
 def main():   
     # Process args
@@ -54,17 +65,20 @@ def main():
     browsers = args['--browsers'].split(",")
     url = args['--url']
     runs = int(args['--runs'])
-
+    server_conf = "/usr/local/nginx/conf/nginx.conf"
+    
     if args['--disable_caching']:
         # Assumes that there is server caching by default
-        cache_control.remove_server_caching("/usr/local/nginx/conf/nginx.conf", 23)
-
+        cache_control.remove_server_caching(server_conf, 23)
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
     reset = RESET_FORMAT.format(DEVICE=device)
-    call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
 
+    call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
+    experimentID = int(time.time()) # ensures no repeats
+    netemParams = options
+    
     for browser in browsers:
         name = browser + "_" + options.replace(" ", "_")
         directoryPath = "results"
@@ -74,31 +88,28 @@ def main():
         os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
         with open(csvFileName, 'w', newline='\n') as outFile:
             csvWriter = csv.writer(outFile)
-            csvWriter.writerow(timingParameters)
+            csvWriter.writerow(parameters)
+        
+        whenRunH3 = runs * [True] + runs * [False]
+        random.shuffle(whenRunH3)
 
         # run the same experiment multiple times over h3/h2
         with sync_playwright() as p:
-            p: "SyncPlaywrightContextManager"
-
-            print("HTTP/3:")
-            for _ in range(runs):
-                results = runExperiment(call, reset, p, browser, True, url)
+            for useH3 in whenRunH3:
+                results = runExperiment(call, reset, p, browser, useH3, url)
+                results["experimentID"] = experimentID
+                results["netemParams"] = netemParams
+                results["httpVersion"] = "h3" if useH3 else "h2"
                 writeData(results, csvFileName)
-
-            print("HTTP/2:")
-            for _ in range(runs):
-                results = runExperiment(call, reset, p, browser, False, url) 
-                writeData(results, csvFileName)
-
-    if args['--disable_caching']: #re-enable server caching
-        cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
+    if args['--disable_caching']:
+        # Re-enable server caching
+        cache_control.add_server_caching(server_conf, 23, 9)
 
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
-        csvWriter = csv.DictWriter(outFile, fieldnames=timingParameters, extrasaction='ignore')
+        csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
-
 
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -112,7 +123,6 @@ def launchBrowser(
         return launchChromium(pwInstance, url, h3)
     elif browserType  ==  "edge":
         return launchEdge(pwInstance, url, h3)
-
 
 def launchFirefox(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -144,7 +154,6 @@ def launchFirefox(
     browser.close()
     return performanceTiming
 
-
 def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
@@ -173,7 +182,6 @@ def launchChromium(
     browser.close()
     return performanceTiming
 
-
 def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
@@ -201,7 +209,6 @@ def launchEdge(
     browser.close()
     return performanceTiming
     
-
 def runExperiment(
     call: str, 
     reset: str, 
