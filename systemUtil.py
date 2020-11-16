@@ -21,26 +21,34 @@ def getDataFromPsutil():
     procsList = []
     for proc in psutil.process_iter():
         if proc.name() == 'firefox' or proc.name() == '(chromium)' or proc.name()  == '(edge)':
-            procsCPU.append(proc.cpu_percent)
-            procsMemory.append(proc.memory_percent)
+            procsCPU.append(proc.cpu_percent())
+            procsMemory.append(proc.memory_percent())
             procsList.append(proc.name())
     return procsList, procsCPU, procsMemory
 
-def getDataFromKeranl():
+def getDataFromKernal():
     procs = os.listdir('/proc')
     procsCPU = []
-    procsMemory = []
+    ioWait = []
     procsList = []
+    # iterate through all the running process
     for proc in procs:
         if proc.isnumeric():
             with open('/proc/'+proc+'/stat', 'r') as f:
                 data = f.read()
             stat = data.split()
+            # find the process corresponding to the browser instances
             if stat[1] == '(firefox)' or stat[1] == '(chromium)' or stat[1] == '(edge)':
+                # add the CPU time to the list
                 procsCPU.append(int(stat[13])/hz)
-                procsMemory.append(stat[22])
+                # procsMemory.append(stat[22])
                 procsList.append(stat[1])
-    return procsList, procsCPU, procsMemory
+    with open('/proc/stat', 'r') as f:
+        data = f.read()
+        for _ in range(len(procsList)):
+            # Time waiting for I/O to complete
+            ioWait.append(data.split()[4])
+    return procsList, procsCPU, ioWait
 
 
 def getTime():
@@ -73,21 +81,21 @@ if __name__ == "__main__":
     killer = GracefulKiller()
     currentCPUusage = []
     currentTime = []
-    currentMemoryUsage = []
+    currentIOwait = []
     currentProcNames = []
     while not killer.kill_now:
         time.sleep(1)
         # getDataFromPsutil()
-        procsList, procsCPU, procsMemory = getDataFromPsutil()
+        procsList, procsCPU, ioWait = getDataFromKernal()
         for i in range(len(procsList)):
             currentTime.append(getTime())
         currentCPUusage+=procsCPU
-        currentMemoryUsage += procsMemory
+        currentIOwait += ioWait
         currentProcNames+=procsList
         # currentCPUusage.append(psutil.cpu_percent())
         # currentMemoryUsage.append(psutil.virtual_memory().percent)
         print("ideally appending into an array")
-    zipall = zip(currentTime, currentProcNames, currentCPUusage, currentMemoryUsage)
+    zipall = zip(currentTime, currentProcNames, currentCPUusage, currentIOwait)
     writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")
 
