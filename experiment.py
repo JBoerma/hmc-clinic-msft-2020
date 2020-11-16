@@ -4,6 +4,7 @@ import os
 from playwright import sync_playwright
 import time
 import random
+from getTime import getTime
 
 from args import getArguments
 
@@ -14,6 +15,7 @@ RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
 experimentParameters = [
     "experimentID",
+    "experimentStartTime",
     "netemParams", # TODO: think about better encoding
     "httpVersion", 
 ]
@@ -60,7 +62,7 @@ def main():
         netemParams = options
         
         for browser in browsers:
-            name = browser + "" + options.replace(" ", "")
+            name = browser + "" + options.replace(" ", "") + getTime()
             directoryPath = "results"
             csvFileName = f"{directoryPath}/{name}.csv"
 
@@ -78,6 +80,7 @@ def main():
                 for useH3 in whenRunH3:
                     results = runExperiment(call, reset, p, browser, useH3, url)
                     results["experimentID"] = experimentID
+                    results["experimentStartTime"] = getTime()
                     results["netemParams"] = netemParams
                     results["httpVersion"] = "h3" if useH3 else "h2"
                     writeData(results, csvFileName)

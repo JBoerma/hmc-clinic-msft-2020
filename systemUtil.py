@@ -34,15 +34,18 @@ def getDataFromKernal():
     # iterate through all the running process
     for proc in procs:
         if proc.isnumeric():
-            with open('/proc/'+proc+'/stat', 'r') as f:
-                data = f.read()
-            stat = data.split()
-            # find the process corresponding to the browser instances
-            if stat[1] == '(firefox)' or stat[1] == '(chromium)' or stat[1] == '(edge)':
-                # add the CPU time to the list
-                procsCPU.append(int(stat[13])/hz)
-                # procsMemory.append(stat[22])
-                procsList.append(stat[1])
+            try:
+                with open('/proc/'+proc+'/stat', 'r') as f:
+                    data = f.read()
+                stat = data.split()
+                # find the process corresponding to the browser instances
+                if stat[1] == '(firefox)' or stat[1] == '(chromium)' or stat[1] == '(edge)':
+                    # add the CPU time to the list
+                    procsCPU.append(int(stat[13])/hz)
+                    # procsMemory.append(stat[22])
+                    procsList.append(stat[1])
+            except FileNotFoundError:
+                pass
     with open('/proc/stat', 'r') as f:
         data = f.read()
         for _ in range(len(procsList)):
