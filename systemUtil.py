@@ -2,7 +2,7 @@ import psutil
 import time 
 import signal
 import csv
-from datetime import datetime
+from getTime import getTime
 import os
 cpuCSVfileName = "results/cpu.csv"
 memoryCSVfileName = "results/memory.csv"
@@ -51,19 +51,6 @@ def getDataFromKernal():
     return procsList, procsCPU, ioWait
 
 
-def getTime():
-    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-
-# if __name__ == "__main__":
-#     start_time = time.time()
-#     currentT = 0
-#     while True:
-#         if (int(round((time.time() - start_time)*1000)))%100 == 0:
-#             if run.value == 1:
-#                 currentCPUusage.append(psutil.cpu_percent())
-#             else:
-#                 writeCPUdata(currentCPUusage, cpuCSVfileName)
-#                 currentCPUusage = []
 
 # https://stackoverflow.com/questions/18499497/how-to-process-sigterm-signal-gracefully
 class GracefulKiller:
@@ -97,23 +84,4 @@ if __name__ == "__main__":
         print("ideally appending into an array")
     zipall = zip(currentTime, currentProcNames, currentCPUusage, currentIOwait)
     writeData(zipall, systemUtilLog)
-    print("ideally writing to csv file")
-
-# utility usauge for a single process
-def main(pid):
-    killer = GracefulKiller()
-    currentCPUusage = []
-    currentTime = []
-    currentMemoryUsage = []
-    p = psutil.Process(pid)
-    while not killer.kill_now:
-        time.sleep(1)
-        currentTime.append(getTime())
-        currentCPUusage.append(p.cpu_percent())
-        currentMemoryUsage.append(p.memory_percent())
-        print("ideally appending into an array")
-    writeData(currentTime, cpuCSVfileName)
-    writeData(currentCPUusage, cpuCSVfileName)
-    writeData(currentTime, memoryCSVfileName)
-    writeData(currentCPUusage, memoryCSVfileName)
     print("ideally writing to csv file")
