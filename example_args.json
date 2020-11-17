@@ -1,0 +1,7 @@
+{
+    "browsers": ["firefox","chromium","edge"],
+    "options_list": ["delay 100ms 10ms 25%", "delay 50ms 10ms 25%"],
+    "device": "lo root",
+    "url": "https://localhost",
+    "runs":1
+}
