@@ -35,7 +35,9 @@ experimentParameters = [
     "experimentID",
     "netemParams", # TODO: think about better encoding
     "httpVersion", 
+    "warmup",
 ]
+
 timingParameters = [ 
     "startTime",
     # "unloadEventStart",
@@ -105,6 +107,7 @@ def main():
                 results["experimentID"] = experimentID
                 results["netemParams"] = netemParams
                 results["httpVersion"] = "h3" if useH3 else "h2"
+                results["warmup"] = warmup_connection
                 writeData(results, csvFileName)
 
     if disable_caching:
