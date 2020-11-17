@@ -13,6 +13,7 @@ Arguments:
 Options:
     -h --help                 Show this screen 
     --disable_caching         Disables caching
+    --warmup                  Warms up connection
 """
 from typing import List
 import subprocess, csv, json
@@ -65,9 +66,13 @@ def main():
     browsers = args['--browsers'].split(",")
     url = args['--url']
     runs = int(args['--runs'])
+
+    disable_caching = args['--disable_caching']
+    warmup_connection = args['--warmup']
+
     server_conf = "/usr/local/nginx/conf/nginx.conf"
     
-    if args['--disable_caching']:
+    if disable_caching:
         # Assumes that there is server caching by default
         cache_control.remove_server_caching(server_conf, 23)
     # Make sure server is running
@@ -96,13 +101,13 @@ def main():
         # run the same experiment multiple times over h3/h2
         with sync_playwright() as p:
             for useH3 in whenRunH3:
-                results = runExperiment(call, reset, p, browser, useH3, url, warmup=True)
+                results = runExperiment(call, reset, p, browser, useH3, url, warmup=warmup_connection)
                 results["experimentID"] = experimentID
                 results["netemParams"] = netemParams
                 results["httpVersion"] = "h3" if useH3 else "h2"
                 writeData(results, csvFileName)
 
-    if args['--disable_caching']:
+    if disable_caching:
         # Re-enable server caching
         cache_control.add_server_caching(server_conf, 23, 9)
 
