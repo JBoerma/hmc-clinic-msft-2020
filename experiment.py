@@ -147,14 +147,17 @@ def launchFirefox(
     h3: bool,
     warmup: bool,
 ) -> json:
-    firefoxPrefs = {"privacy.reduceTimerPrecision":False}
-    if (h3):
+    firefoxPrefs = {}
+    firefoxPrefs["privacy.reduceTimerPrecision"] = False
+    
+    if h3:
         domain = url if "https://" not in url else url[8:]
-        firefoxPrefs = {
-            "network.http.http3.enabled":True,
-            "network.http.http3.alt-svc-mapping-for-testing":f"{domain};h3-29=:443",
-            "privacy.reduceTimerPrecision":False
-        }
+        firefoxPrefs["network.http.http3.enabled"] = True
+        firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29=:443"
+
+    if warmup:
+        firefoxPrefs["devtools.cache.disabled"] = True
+
     browser = pwInstance.firefox.launch(
         headless=True,
         firefoxUserPrefs=firefoxPrefs,
@@ -163,7 +166,7 @@ def launchFirefox(
     page = context.newPage()
     warmupIfSpecified(page, url, warmup)
     response = page.goto(url)
-    print("Firefox: ",response.headers['version'])
+    print("Firefox: ", response.headers['version'])
 
     # getting performance timing data
     # if we don't stringify and parse, things break
