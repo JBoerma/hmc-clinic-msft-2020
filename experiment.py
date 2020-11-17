@@ -119,6 +119,9 @@ def writeData(data: json, csvFileName: str):
         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
 
+# TODO: fix warmup approach. Currently everything from 
+# fetchStart to responseEnd is the same, even when disabling
+# browser cache in Firefox
 def warmupIfSpecified(
     playwrightPage: "Page",
     url: str,
@@ -155,6 +158,10 @@ def launchFirefox(
         firefoxPrefs["network.http.http3.enabled"] = True
         firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29=:443"
 
+    # warmup connection, disable cache because we still want to request data
+    # TODO: it looks like cache is still populated (at least 
+    # everything from fetchStart to responseEnd is exactly the same when 
+    # warmup is specified...)
     if warmup:
         firefoxPrefs["devtools.cache.disabled"] = True
 
@@ -176,6 +183,7 @@ def launchFirefox(
     browser.close()
     return performanceTiming
 
+# TODO: disable browser cache for Chromium and Edge
 def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
@@ -245,7 +253,7 @@ def runExperiment(
     warmup: bool,
 ) -> json:
     runTcCommand(call)
-    results = launchBrowser(pwInstance, browserType, url, h3, True)
+    results = launchBrowser(pwInstance, browserType, url, h3, warmup)
     runTcCommand(reset)
 
     return results
