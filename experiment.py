@@ -22,18 +22,17 @@ from docopt import docopt
 import cache_control
 import time
 import random
-
-from args import getArguments
-
+from uuid import uuid4
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
 experimentParameters = [
-    "experimentID",
-    "netemParams", # TODO: think about better encoding
+    "browser",
+    # "netemParams", # TODO: think about better encoding
     "httpVersion", 
+    "unixStartTime"
 ]
 timingParameters = [ 
     "startTime",
@@ -55,7 +54,7 @@ timingParameters = [
     "loadEventStart",
     "loadEventEnd",
 ]
-parameters = experimentParameters + timingParameters
+parameters = timingParameters + experimentParameters
 
 def main():   
     # Process args
@@ -76,38 +75,51 @@ def main():
     reset = RESET_FORMAT.format(DEVICE=device)
 
     call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
-    experimentID = int(time.time()) # ensures no repeats
+    experimentID = uuid4()
     netemParams = options
     
-    for browser in browsers:
-        name = browser + "_" + options.replace(" ", "_")
-        directoryPath = "results"
-        csvFileName = f"{directoryPath}/{name}.csv"
+    directoryPath = "results"
+    csvFileName = f"{directoryPath}/{experimentID}_timings.csv"
 
-        # Setup data file headers
-        os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
-        with open(csvFileName, 'w', newline='\n') as outFile:
-            csvWriter = csv.writer(outFile)
-            csvWriter.writerow(parameters)
-        
+    # Setup data file headers
+    os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
+    with open(csvFileName, 'w', newline='\n') as outFile:
+        csvWriter = csv.writer(outFile)
+        csvWriter.writerow(parameters)
+
+    for browser in browsers:
         whenRunH3 = runs * [True] + runs * [False]
         random.shuffle(whenRunH3)
 
         # run the same experiment multiple times over h3/h2
         with sync_playwright() as p:
             for useH3 in whenRunH3:
+                unixStartTime = time.time()
                 results = runExperiment(call, reset, p, browser, useH3, url)
-                results["experimentID"] = experimentID
-                results["netemParams"] = netemParams
+                results["browser"] = browser
                 results["httpVersion"] = "h3" if useH3 else "h2"
+                results["unixStartTime"] = unixStartTime
                 writeData(results, csvFileName)
+
+    # Write experiment details to master CSV
+    schema_version = "0.1"
+    git_hash = subprocess.check_output(["git", "describe", "--always"]).strip().decode('utf-8').replace("'","")
+    webpage = "nginx homepage" # TODO: Change this once we start accessing different webpages
+    server = "nginx/quiche"
+    experiment_details = [schema_version, str(experimentID), git_hash, \
+                            webpage, server, netemParams]
+    with open('main.csv','a',newline='\n') as fd:
+        wr = csv.writer(fd,id)
+        wr.writerow(experiment_details)
+
+    
     if args['--disable_caching']:
         # Re-enable server caching
         cache_control.add_server_caching(server_conf, 23, 9)
 
 
 def writeData(data: json, csvFileName: str):
-    with open(csvFileName, 'a+', newline='\n') as outFile:
+    with open(csvFileName, 'a', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
 
