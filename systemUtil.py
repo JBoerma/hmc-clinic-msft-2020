@@ -8,6 +8,8 @@ cpuCSVfileName = "results/cpu.csv"
 memoryCSVfileName = "results/memory.csv"
 systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
+lastReading = 0
+
 def writeData(data, csvFileName: str):
     with open(csvFileName, 'a', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
@@ -26,7 +28,7 @@ def getDataFromPsutil():
             procsList.append(proc.name())
     return procsList, procsCPU, procsMemory
 
-def getDataFromKernal():
+def getDataFromKernal(lastReading):
     procs = os.listdir('/proc')
     procsCPU = []
     ioWait = []
@@ -50,8 +52,10 @@ def getDataFromKernal():
         data = f.read()
         for _ in range(len(procsList)):
             # Time waiting for I/O to complete
-            ioWait.append(data.split()[4])
-    return procsList, procsCPU, ioWait
+            currentReading = data.split()[4]
+            currentDelta = int(lastReading) - int(currentReading)
+            ioWait.append(currentDelta)
+    return procsList, procsCPU, ioWait, currentReading
 
 
 
@@ -74,9 +78,14 @@ if __name__ == "__main__":
     currentIOwait = []
     currentProcNames = []
     currentUnixTime = []
+    with open('/proc/stat', 'r') as f:
+        data = f.read()
+    # Time waiting for I/O to complete
+    lastReading = data.split()[4]
+
     while not killer.kill_now:
         # getDataFromPsutil()
-        procsList, procsCPU, ioWait = getDataFromKernal()
+        procsList, procsCPU, ioWait, lastReading = getDataFromKernal(lastReading)
         for i in range(len(procsList)):
             currentTime.append(getTime())
             currentUnixTime.append(int(time.time()))
