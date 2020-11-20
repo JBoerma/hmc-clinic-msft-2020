@@ -43,7 +43,7 @@ def getDataFromKernal():
                     # add the CPU time to the list
                     procsCPU.append(int(stat[13])/hz)
                     # procsMemory.append(stat[22])
-                    procsList.append(stat[1])
+                    procsList.append(stat[1][1:-1])
             except FileNotFoundError:
                 pass
     with open('/proc/stat', 'r') as f:
@@ -73,18 +73,19 @@ if __name__ == "__main__":
     currentTime = []
     currentIOwait = []
     currentProcNames = []
+    currentUnixTime = []
     while not killer.kill_now:
-        time.sleep(1)
         # getDataFromPsutil()
         procsList, procsCPU, ioWait = getDataFromKernal()
         for i in range(len(procsList)):
             currentTime.append(getTime())
+            currentUnixTime.append(int(time.time()))
         currentCPUusage+=procsCPU
         currentIOwait += ioWait
         currentProcNames+=procsList
         # currentCPUusage.append(psutil.cpu_percent())
         # currentMemoryUsage.append(psutil.virtual_memory().percent)
         print("ideally appending into an array")
-    zipall = zip(currentTime, currentProcNames, currentCPUusage, currentIOwait)
+    zipall = zip(currentTime, currentUnixTime, currentProcNames, currentCPUusage, currentIOwait)
     writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")

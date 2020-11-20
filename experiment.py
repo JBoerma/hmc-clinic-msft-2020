@@ -42,7 +42,6 @@ timingParameters = [
 parameters = experimentParameters + timingParameters
 
 def main():   
-    print (os.getpid())
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
