@@ -1,22 +1,10 @@
 *.csv
 
-<<<<<<< HEAD
-=======
 # npm
 package-lock.json
 node_modules
 
->>>>>>> Converted spaghet to python, changed visualization to use median instead of mean
 # vscode
 *.vscode
 *.code-workspace
 
-<<<<<<< HEAD
-# python
-*pycache*
-
-# results and data analysis
-*.png 
-results
-=======
->>>>>>> Converted spaghet to python, changed visualization to use median instead of mean

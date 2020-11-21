@@ -33,6 +33,7 @@ def getDataFromKernal(lastReading):
     procsCPU = []
     ioWait = []
     procsList = []
+    currentReading = 0
     # iterate through all the running process
     for proc in procs:
         if proc.isnumeric():
