@@ -23,6 +23,7 @@ from docopt import docopt
 import cache_control
 import time
 import random
+from getTime import getTime
 
 from args import getArguments
 
@@ -33,6 +34,7 @@ RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
 experimentParameters = [
     "experimentID",
+    "experimentStartTime",
     "netemParams", # TODO: think about better encoding
     "httpVersion", 
     "warmup",
