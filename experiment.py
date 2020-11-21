@@ -14,7 +14,9 @@ Options:
     -h --help                 Show this screen 
     --disable_caching         Disables caching
     --multi-server            Uses all four server ports
+    --warmup                  Warms up connection
 """
+
 import os, cache_control, time, random, subprocess, csv, json
 from typing import List
 from playwright import sync_playwright
@@ -31,8 +33,10 @@ experimentParameters = [
     "experimentID",
     "netemParams", # TODO: think about better encoding
     "httpVersion", 
-    "server"
+    "server",
+    "warmup",
 ]
+
 timingParameters = [ 
     "startTime",
     # "unloadEventStart",
@@ -63,12 +67,16 @@ def main():
     # Fix docopt splitting default argument
     if options == ["delay", "0ms"]:
         options = ["delay 0ms"]
-    browsers = args['--browsers']
+    browsers = args['--browsers'].split(",")
     url = args['--url']
     runs = int(args['--runs'])
+
+    disable_caching = args['--disable_caching']
+    warmup_connection = args['--warmup']
+
     server_conf = "/usr/local/nginx/conf/nginx.conf"
 
-    if args['--disable_caching']:
+    if disable_caching:
         # Assumes that there is server caching by default
         cache_control.remove_server_caching(server_conf, 23)
     # Make sure server is running
@@ -86,9 +94,10 @@ def main():
 
                 # Setup data file headers
                 os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
-                with open(csvFileName, 'w', newline='\n') as outFile:
-                    csvWriter = csv.writer(outFile)
-                    csvWriter.writerow(parameters)
+                if not os.path.exists(csvFileName):
+                    with open(csvFileName, 'w', newline='\n') as outFile:
+                        csvWriter = csv.writer(outFile)
+                        csvWriter.writerow(parameters)
                 
                 whenRunH3 = runs * [True] + runs * [False]
                 random.shuffle(whenRunH3)
@@ -104,10 +113,11 @@ def main():
                     whichServer = servers1 + servers2
                 # run the same experiment multiple times over h3/h2
                 for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                    results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop())
+                    results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
                     results["experimentID"] = experimentID
                     results["netemParams"] = netemParams
                     results["httpVersion"] = "h3" if useH3 else "h2"
+                    results["warmup"] = warmup_connection
                     writeData(results, csvFileName)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
                     # Print info from latest run and then go back lines to prevent broken progress bars
@@ -119,46 +129,58 @@ def main():
         cache_control.add_server_caching(server_conf, 23, 9)
     print("Finished!\n")
 
-
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
         csvWriter.writerow(data)
+
+def warmupIfSpecified(
+    playwrightPage: "Page",
+    url: str,
+    warmup: bool,
+) -> None: 
+    if warmup:
+        # "?<random_string>" forces browser to re-request data
+        new_url = url + "?send_data_again"
+        playwrightPage.goto(new_url)
 
 def launchBrowser(
     pwInstance: "SyncPlaywrightContextManager", 
     browserType: str,
     url: str, 
     h3: bool,
-    port: str
+    port: str,
+    warmup: bool,
 ) -> json:
     if browserType  ==  "firefox":
-        return launchFirefox(pwInstance, url, h3, port)
+        return launchFirefox(pwInstance, url, h3, port, warmup)
     elif browserType  ==  "chromium":
-        return launchChromium(pwInstance, url, h3, port)
+        return launchChromium(pwInstance, url, h3, port, warmup)
     elif browserType  ==  "edge":
-        return launchEdge(pwInstance, url, h3, port)
+        return launchEdge(pwInstance, url, h3, port, warmup)
 
 def launchFirefox(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
     h3: bool,
-    port: str
+    port: str,
+    warmup: bool,
 ) -> json:
-    firefoxPrefs = {"privacy.reduceTimerPrecision":False}
-    if (h3):
+    firefoxPrefs = {}
+    firefoxPrefs["privacy.reduceTimerPrecision"] = False
+    
+    if h3:
         domain = url if "https://" not in url else url[8:]
-        firefoxPrefs = {
-            "network.http.http3.enabled":True,
-            "network.http.http3.alt-svc-mapping-for-testing":f"{domain};h3-29={port.split('/')[0]}",
-            "privacy.reduceTimerPrecision":False
-        }
+        firefoxPrefs["network.http.http3.enabled"] = True
+        firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
+
     browser = pwInstance.firefox.launch(
         headless=True,
         firefoxUserPrefs=firefoxPrefs,
     )
     context = browser.newContext()
     page = context.newPage()
+    warmupIfSpecified(page, url + port, warmup)
     response = page.goto(url + port)
 
     # getting performance timing data
@@ -174,7 +196,8 @@ def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
     h3: bool,
-    port: str
+    port: str,
+    warmup: bool,
 ) -> json:
     chromiumArgs = []
     if (h3):
@@ -194,6 +217,7 @@ def launchChromium(
     context = browser.newContext()
     context = browser.newContext()
     page = context.newPage()
+    warmupIfSpecified(page, url + port, warmup)
     response = page.goto(url + port)
 
     # getting performance timing data
@@ -209,7 +233,8 @@ def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
     url: str, 
     h3: bool,
-    port: str
+    port: str,
+    warmup: bool,
 ) -> json:
     edgeArgs = []
     if (h3) :
@@ -229,6 +254,7 @@ def launchEdge(
         )
     context = browser.newContext()
     page = context.newPage()
+    warmupIfSpecified(page, url + port, warmup)
     response = page.goto(url + port)
 
     # getting performance timing data
@@ -239,7 +265,7 @@ def launchEdge(
     
     browser.close()
     return performanceTiming
-    
+
 def runExperiment(
     call: str, 
     reset: str, 
@@ -247,10 +273,11 @@ def runExperiment(
     browserType: str, 
     h3: bool,
     url: str,
-    port: str
+    port: str,
+    warmup: bool,
 ) -> json:
     runTcCommand(call)
-    results = launchBrowser(pwInstance, browserType, url, h3, port)
+    results = launchBrowser(pwInstance, browserType, url, h3, port, warmup=warmup)
     runTcCommand(reset)
 
     return results
