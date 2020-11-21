@@ -272,12 +272,13 @@ def runExperiment(
 def runTcCommand(
     command: str,
 ):
-    result = subprocess.run(command.split())
-    if result.returncode > 0:
-        print("Issue running TC!")
-        print(result.args)
-        print(result.stderr)
-        print("--------------------------")
+    if command:
+        result = subprocess.run(command.split())
+        if result.returncode > 0:
+            print("Issue running TC!")
+            print(result.args)
+            print(result.stderr)
+            print("--------------------------")
 
 
 if __name__ == "__main__":
