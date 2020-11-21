@@ -80,7 +80,8 @@ def main():
         # Assumes that there is server caching by default
         cache_control.remove_server_caching(server_conf, 23)
     # Make sure server is running
-    subprocess.run("sudo systemctl restart nginx.service".split())
+    if "localhost" in url or "127.0.0.1" in url:
+        subprocess.run("sudo systemctl restart nginx.service".split())
     with sync_playwright() as p:
         for netemParams in tqdm(options, desc="Experiments"):
             reset = RESET_FORMAT.format(DEVICE=device)
