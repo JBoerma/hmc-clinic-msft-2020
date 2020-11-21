@@ -34,4 +34,4 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --builtins="SyncPlaywrightContextManager,Page"
     - name: Test
       run: |
-        python experiment.py --url google.com --browsers firefox --browsers chromium
+        python experiment.py --url https://www.google.com --browsers firefox --browsers chromium
