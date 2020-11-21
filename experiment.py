@@ -61,11 +61,9 @@ def main():
     def fix_process(process_name: str, cpu_core: str):
         processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
         for process in processes.split("\n"):
-            print(subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'",""))
-    
+            subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'","")
     fix_process("experiment.py", "01")
     fix_process("nginx", "02")
-
 
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
@@ -114,8 +112,8 @@ def main():
     # Write experiment details to master CSV
     schema_version = "0.1"
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip().decode('utf-8').replace("'","")
-    webpage = "nginx homepage" # TODO: Change this once we start accessing different webpages
-    server = "nginx/quiche"
+    webpage = url 
+    server = "nginx 1.16.1"
     experiment_details = [schema_version, str(experimentID), git_hash, \
                             webpage, server, netemParams]
     with open('main.csv','a',newline='\n') as fd:
