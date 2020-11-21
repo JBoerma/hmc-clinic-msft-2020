@@ -17,8 +17,8 @@ Options:
     --warmup                  Warms up connection
 """
 
-import os, cache_control, time, random, subprocess, csv, json, asyncio
-from typing import List
+import os, cache_control, time, random, subprocess, csv, json, asyncio, itertools
+from typing import List, Dict, Tuple
 from playwright import sync_playwright, async_playwright
 from docopt import docopt
 from getTime import getTime
@@ -131,16 +131,16 @@ def main():
     experimentID = int(time.time()) # ensures no repeats
     netemParams = options
     
-    asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
-        schema_version= "0",
-        experiment_id=  str(experimentID),
-        git_hash=       "0",
-        server_version= "0",
-        tc_command=     call,
-        tc_reset=       reset,
-        browsers=       browsers,
-        runs=           runs,
-    ))
+    # asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
+    #     schema_version= "0",
+    #     experiment_id=  str(experimentID),
+    #     git_hash=       "0",
+    #     server_version= "0",
+    #     tc_command=     call,
+    #     tc_reset=       reset,
+    #     browsers=       browsers,
+    #     runs=           runs,
+    # ))
 
     if args['--disable_caching']:
         # Re-enable server caching
@@ -159,12 +159,30 @@ async def runAsyncExperiment(
 ): 
     # TODO initialize schema tables if neccessary 
     # TODO save high-level data to table
-
+    
     # TODO launch browsers, save them 
 
-    # TODO for each combination of browser/httpVersion, do runs 
-        # TODO set/unset tc netem if neccessary 
-        # TODO save data to table 
+    experiment_combos = \
+        [
+            (browser, version) 
+            for browser in browsers 
+            for version in ["h2", "h3"]
+        ]
+    experiment_runs   = {combo: runs for combo in experiment_combos}
+    
+    async with async_playwright() as p: 
+        while experiment_runs:
+            # choose a combo to work with
+            combo = random.choice(list(experiment_runs.keys()))
+            if experiment_runs[combo] == 0: 
+                del experiment_runs[combo]
+                continue
+            experiment_runs[combo] -= 1
+
+            browser, h_version = combo 
+            # TODO do run 
+            # TODO set/unset tc netem if neccessary 
+            # TODO save data to table 
     
     # TODO unset tc netem
     # TODO 
