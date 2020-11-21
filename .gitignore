@@ -8,5 +8,6 @@
 *pycache*
 
 # results and data analysis
-*.png 
+*.png
 results
+graph

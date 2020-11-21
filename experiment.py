@@ -21,6 +21,7 @@ import os, cache_control, time, random, subprocess, csv, json
 from typing import List
 from playwright import sync_playwright
 from docopt import docopt
+from getTime import getTime
 from args import getArguments
 from tqdm import tqdm
 
@@ -31,6 +32,7 @@ RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
 experimentParameters = [
     "experimentID",
+    "experimentStartTime",
     "netemParams", # TODO: think about better encoding
     "httpVersion", 
     "server",
