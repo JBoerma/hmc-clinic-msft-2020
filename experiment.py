@@ -17,9 +17,9 @@ Options:
     --warmup                  Warms up connection
 """
 
-import os, cache_control, time, random, subprocess, csv, json
+import os, cache_control, time, random, subprocess, csv, json, asyncio
 from typing import List
-from playwright import sync_playwright
+from playwright import sync_playwright, async_playwright
 from docopt import docopt
 from getTime import getTime
 from args import getArguments
@@ -127,11 +127,49 @@ def main():
                     tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
                 print("", end="\033[F\033[K")
             print("", end="\033[F\033[K")
+    call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
+    experimentID = int(time.time()) # ensures no repeats
+    netemParams = options
+    
+    asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
+        schema_version= "0",
+        experiment_id=  str(experimentID),
+        git_hash=       "0",
+        server_version= "0",
+        tc_command=     call,
+        tc_reset=       reset,
+        browsers=       browsers,
+        runs=           runs,
+    ))
+
     if args['--disable_caching']:
         # Re-enable server caching
         cache_control.add_server_caching(server_conf, 23, 9)
     print("Finished!\n")
 
+async def runAsyncExperiment(
+    schema_version: str, 
+    experiment_id:  str,
+    git_hash:       str, 
+    server_version: str, 
+    tc_command:     str, 
+    tc_reset:       str, 
+    browsers:       List[str],
+    runs:           int, 
+): 
+    # TODO initialize schema tables if neccessary 
+    # TODO save high-level data to table
+
+    # TODO launch browsers, save them 
+
+    # TODO for each combination of browser/httpVersion, do runs 
+        # TODO set/unset tc netem if neccessary 
+        # TODO save data to table 
+    
+    # TODO unset tc netem
+    # TODO 
+    pass
+    
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
@@ -284,5 +322,4 @@ def runTcCommand(
 
 
 if __name__ == "__main__":
-
     main()
