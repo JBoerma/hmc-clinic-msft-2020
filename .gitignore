@@ -1,10 +1,12 @@
 *.csv
 
-# npm
-package-lock.json
-node_modules
-
 # vscode
 *.vscode
 *.code-workspace
 
+# python
+*pycache*
+
+# results and data analysis
+*.png
+results

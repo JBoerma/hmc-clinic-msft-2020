@@ -4,36 +4,24 @@ import signal
 import csv
 from getTime import getTime
 import os
-cpuCSVfileName = "results/cpu.csv"
-memoryCSVfileName = "results/memory.csv"
+import numpy
+
 systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
-lastReading = 0
 
 def writeData(data, csvFileName: str):
-    with open(csvFileName, 'a', newline='\n') as outFile:
+    with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
         for row in data:
             csvWriter.writerow(row)
     print("wrote to {}".format(csvFileName))
 
-def getDataFromPsutil():
-    procsCPU = []
-    procsMemory = []
-    procsList = []
-    for proc in psutil.process_iter():
-        if proc.name() == 'firefox' or proc.name() == '(chromium)' or proc.name()  == '(edge)':
-            procsCPU.append(proc.cpu_percent())
-            procsMemory.append(proc.memory_percent())
-            procsList.append(proc.name())
-    return procsList, procsCPU, procsMemory
 
-def getDataFromKernal(lastReading):
+def getDataFromKernal():
     procs = os.listdir('/proc')
     procsCPU = []
     ioWait = []
     procsList = []
-    currentReading = 0
     # iterate through all the running process
     for proc in procs:
         if proc.isnumeric():
@@ -54,9 +42,8 @@ def getDataFromKernal(lastReading):
         for _ in range(len(procsList)):
             # Time waiting for I/O to complete
             currentReading = data.split()[4]
-            currentDelta = int(lastReading) - int(currentReading)
-            ioWait.append(currentDelta)
-    return procsList, procsCPU, ioWait, currentReading
+            ioWait.append(currentReading)
+    return procsList, procsCPU, ioWait
 
 
 
@@ -85,17 +72,21 @@ if __name__ == "__main__":
     lastReading = data.split()[4]
 
     while not killer.kill_now:
-        # getDataFromPsutil()
-        procsList, procsCPU, ioWait, lastReading = getDataFromKernal(lastReading)
+        time.sleep(1)
+        procsList, procsCPU, ioWait = getDataFromKernal()
         for i in range(len(procsList)):
             currentTime.append(getTime())
             currentUnixTime.append(int(time.time()))
         currentCPUusage+=procsCPU
         currentIOwait += ioWait
         currentProcNames+=procsList
-        # currentCPUusage.append(psutil.cpu_percent())
-        # currentMemoryUsage.append(psutil.virtual_memory().percent)
         print("ideally appending into an array")
+    # compute the differences of iotimes
+    # TODO: this will be an issue when we parallize browsers, because 
+    # iotime manually matches the processes column. So if we have multiple
+    # processes at a time, our iowait will be [actual iowait, 0, 0, ...] 
+    currentIOwait = numpy.array(currentIOwait, dtype=numpy.uint8)
+    currentIOwaitDiff = numpy.diff(currentIOwait)
     zipall = zip(currentTime, currentUnixTime, currentProcNames, currentCPUusage, currentIOwait)
     writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")
