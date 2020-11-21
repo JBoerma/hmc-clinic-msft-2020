@@ -1,7 +1,25 @@
+"""QUIC Experiment Harness
+
+Usage:
+    experiment.py experiment.py [--device DEVICE] [--options OPTIONS] [--browsers BROWSERS] [--url URL] [--runs RUNS] [options]
+    
+Arguments:
+    --device DEVICE           Network device to modify [default: lo root]
+    --options OPTIONS         tc-netem conditions to apply [default: delay 0ms]
+    --browsers BROWSERS       List of browsers to test [default: firefox,chromium,edge]
+    --url URL                 URL to access [default: https://localhost]
+    --runs RUNS               Number of runs in the experiment [default: 1]
+
+Options:
+    -h --help                 Show this screen 
+    --disable_caching         Disables caching
+"""
 from typing import List
 import subprocess, csv, json
 import os
 from playwright import sync_playwright
+from docopt import docopt
+import cache_control
 import time
 import random
 from getTime import getTime
@@ -42,50 +60,52 @@ timingParameters = [
 parameters = experimentParameters + timingParameters
 
 def main():   
+    # Process args
+    args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
+    device = args['--device']
+    options = args['--options']
+    browsers = args['--browsers'].split(",")
+    url = args['--url']
+    runs = int(args['--runs'])
+    server_conf = "/usr/local/nginx/conf/nginx.conf"
+    
+    if args['--disable_caching']:
+        # Assumes that there is server caching by default
+        cache_control.remove_server_caching(server_conf, 23)
     # Make sure server is running
     subprocess.run("sudo systemctl restart nginx.service".split())
 
-    arguments = getArguments()
-
-    device = arguments.device
-    options_list = arguments.options_list
-    browsers = arguments.browsers
-    url = arguments.url
-    runs = arguments.runs
-
     reset = RESET_FORMAT.format(DEVICE=device)
 
-    for options in options_list: 
-        call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
-        experimentID = int(time.time()) # ensures no repeats
-        netemParams = options
+    call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
+    experimentID = int(time.time()) # ensures no repeats
+    netemParams = options
+    
+    for browser in browsers:
+        name = browser + "_" + options.replace(" ", "_")
+        directoryPath = "results"
+        csvFileName = f"{directoryPath}/{name}.csv"
+
+        # Setup data file headers
+        os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
+        with open(csvFileName, 'w', newline='\n') as outFile:
+            csvWriter = csv.writer(outFile)
+            csvWriter.writerow(parameters)
         
-        for browser in browsers:
-            name = browser + "" + options.replace(" ", "") + getTime()
-            directoryPath = "results"
-            csvFileName = f"{directoryPath}/{name}.csv"
+        whenRunH3 = runs * [True] + runs * [False]
+        random.shuffle(whenRunH3)
 
-            # Setup data file headers
-            os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
-            with open(csvFileName, 'w', newline='\n') as outFile:
-                csvWriter = csv.writer(outFile)
-                csvWriter.writerow(parameters)
-            
-            whenRunH3 = runs * [True] + runs * [False]
-            random.shuffle(whenRunH3)
-
-            # run the same experiment multiple times over h3/h2
-            with sync_playwright() as p:
-                for useH3 in whenRunH3:
-                    try:
-                        results = runExperiment(call, reset, p, browser, useH3, url)
-                        results["experimentID"] = experimentID
-                        results["experimentStartTime"] = getTime()
-                        results["netemParams"] = netemParams
-                        results["httpVersion"] = "h3" if useH3 else "h2"
-                        writeData(results, csvFileName)
-                    except RuntimeError:
-                        pass
+        # run the same experiment multiple times over h3/h2
+        with sync_playwright() as p:
+            for useH3 in whenRunH3:
+                results = runExperiment(call, reset, p, browser, useH3, url)
+                results["experimentID"] = experimentID
+                results["netemParams"] = netemParams
+                results["httpVersion"] = "h3" if useH3 else "h2"
+                writeData(results, csvFileName)
+    if args['--disable_caching']:
+        # Re-enable server caching
+        cache_control.add_server_caching(server_conf, 23, 9)
 
 
 def writeData(data: json, csvFileName: str):
@@ -123,7 +143,6 @@ def launchFirefox(
         headless=True,
         firefoxUserPrefs=firefoxPrefs,
     )
-
     context = browser.newContext()
     page = context.newPage()
     response = page.goto(url)
@@ -217,5 +236,7 @@ def runTcCommand(
         print(result.stderr)
         print("--------------------------")
 
+
 if __name__ == "__main__":
+
     main()
