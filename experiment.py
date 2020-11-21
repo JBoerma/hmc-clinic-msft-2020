@@ -67,7 +67,7 @@ def main():
     # Fix docopt splitting default argument
     if options == ["delay", "0ms"]:
         options = ["delay 0ms"]
-    browsers = args['--browsers'].split(",")
+    browsers = args['--browsers']
     url = args['--url']
     runs = int(args['--runs'])
 
@@ -106,8 +106,8 @@ def main():
                 if runs < 4 or not args['--multi-server']:
                     whichServer = [':443'] * (runs * 2)
                 else:
-                    servers1 = [':443', ':444', ':445', ':7080/login.php?logoff=1'] * perServer
-                    servers2 = [':443', ':444', ':445', ':7080/login.php?logoff=1'] * perServer
+                    servers1 = [':443', ':444', ':445', ':7080/login.php'] * perServer
+                    servers2 = [':443', ':444', ':445', ':7080/login.php'] * perServer
                     random.shuffle(servers1)
                     random.shuffle(servers2)
                     whichServer = servers1 + servers2
@@ -178,19 +178,7 @@ def launchFirefox(
         headless=True,
         firefoxUserPrefs=firefoxPrefs,
     )
-    context = browser.newContext()
-    page = context.newPage()
-    warmupIfSpecified(page, url + port, warmup)
-    response = page.goto(url + port)
-
-    # getting performance timing data
-    # if we don't stringify and parse, things break
-    timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-    performanceTiming = json.loads(page.evaluate(timingFunction))
-    performanceTiming['server'] = response.headers['server']
-
-    browser.close()
-    return performanceTiming
+    return getResults(browser, url, h3, port, warmup)
 
 def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -214,20 +202,7 @@ def launchChromium(
             headless=True,
             args=chromiumArgs,
         )
-    context = browser.newContext()
-    context = browser.newContext()
-    page = context.newPage()
-    warmupIfSpecified(page, url + port, warmup)
-    response = page.goto(url + port)
-
-    # getting performance timing data
-    # if we don't stringify and parse, things break
-    timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-    performanceTiming = json.loads(page.evaluate(timingFunction))
-    performanceTiming['server'] = response.headers['server']
-
-    browser.close()
-    return performanceTiming
+    return getResults(browser, url, h3, port, warmup)
 
 def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -252,6 +227,16 @@ def launchEdge(
             executablePath='/opt/microsoft/msedge-dev/msedge',
             args=edgeArgs,
         )
+    return getResults(browser, url, h3, port, warmup)
+    
+
+def getResults (
+    browser,
+    url: str, 
+    h3: bool,
+    port: str,
+    warmup: bool,
+) -> json:
     context = browser.newContext()
     page = context.newPage()
     warmupIfSpecified(page, url + port, warmup)
