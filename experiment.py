@@ -57,6 +57,16 @@ timingParameters = [
 parameters = timingParameters + experimentParameters
 
 def main():   
+    # Fix the program and server processes to specific cores
+    def fix_process(process_name: str, cpu_core: str):
+        processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
+        for process in processes.split("\n"):
+            print(subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'",""))
+    
+    fix_process("experiment.py", "01")
+    fix_process("nginx", "02")
+
+
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
