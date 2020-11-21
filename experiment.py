@@ -77,12 +77,16 @@ def main():
             # run the same experiment multiple times over h3/h2
             with sync_playwright() as p:
                 for useH3 in whenRunH3:
-                    results = runExperiment(call, reset, p, browser, useH3, url)
-                    results["experimentID"] = experimentID
-                    results["experimentStartTime"] = getTime()
-                    results["netemParams"] = netemParams
-                    results["httpVersion"] = "h3" if useH3 else "h2"
-                    writeData(results, csvFileName)
+                    try:
+                        results = runExperiment(call, reset, p, browser, useH3, url)
+                        results["experimentID"] = experimentID
+                        results["experimentStartTime"] = getTime()
+                        results["netemParams"] = netemParams
+                        results["httpVersion"] = "h3" if useH3 else "h2"
+                        writeData(results, csvFileName)
+                    except RuntimeError:
+                        pass
+
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
