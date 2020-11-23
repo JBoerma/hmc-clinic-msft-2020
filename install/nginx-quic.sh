@@ -71,7 +71,8 @@ cd "$BUILDROOT/nginx/nginx-quic"
                     --with-cc-opt="-I $BUILDROOT/boringssl/include"   \
                     --with-ld-opt="-L $BUILDROOT/boringssl/build/ssl  \
                                   -L $BUILDROOT/boringssl/build/crypto" \
-                    --with-openssl="$BUILDROOT/boringssl"
+                    --with-openssl="$BUILDROOT/boringssl" \
+                    --prefix="/usr/local/nginx-quic"
 # Fix "Error 127" during build
 touch "$BUILDROOT/boringssl/.openssl/include/openssl/ssl.h"
 make
@@ -83,19 +84,19 @@ git clone https://github.com/FiloSottile/mkcert && cd mkcert
 go build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
 ./mkcert -install localhost
-./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
-    -cert-file /usr/local/nginx/conf/localhost.pem \
+./mkcert -key-file /usr/local/nginx-quic/conf/localhost-key.pem \
+    -cert-file /usr/local/nginx-quic/conf/localhost.pem \
     localhost
 
 # Configure server
 echo '---------Configuring Server--------'
 sudo rm /usr/local/nginx/conf/nginx.conf
-cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx/conf/nginx.conf
+cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx.conf
 
 # Add systemd service
 echo '------Adding Service---------'
 
-sudo bash -c 'cat >/lib/systemd/system/nginx.service' <<EOL
+sudo bash -c 'cat >/lib/systemd/system/nginx-quic.service' <<EOL
 [Unit]
 Description=NGINX with Quic Support
 Documentation=http://nginx.org/en/docs/
@@ -103,11 +104,11 @@ After=network.target remote-fs.target nss-lookup.target
  
 [Service]
 Type=forking
-PIDFile=/usr/local/nginx/logs/nginx.pid
-ExecStartPre=/usr/local/nginx/sbin/nginx -t
-ExecStart=/usr/local/nginx/sbin/nginx
-ExecReload=/usr/local/nginx/sbin/nginx -s reload
-ExecStop=/usr/local/nginx/sbin/nginx -s stop
+PIDFile=/usr/local/nginx-quic/logs/nginx.pid
+ExecStartPre=/usr/local/nginx-quic/sbin/nginx -t
+ExecStart=/usr/local/nginx-quic/sbin/nginx
+ExecReload=/usr/local/nginx-quic/sbin/nginx -s reload
+ExecStop=/usr/local/nginx-quic/sbin/nginx -s stop
 PrivateTmp=true
  
 [Install]
@@ -118,10 +119,10 @@ exit
 echo '------Starting server-------'
 # NOTE: The below fails on Docker containers but i *think* will work elsewhere
 # Enable & start service
-sudo systemctl enable nginx.service
-sudo systemctl start nginx.service
+sudo systemctl enable nginx-quic.service
+sudo systemctl start nginx-quic.service
 
 # Finish script
-sudo systemctl reload nginx.service
-sudo chown -R $USERNAME /usr/local/nginx
+sudo systemctl reload nginx-quic.service
+sudo chown -R $USERNAME /usr/local/nginx-quic
 exit
