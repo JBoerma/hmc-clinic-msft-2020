@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [options] 
+    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [options] 
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo root]
@@ -9,6 +9,7 @@ Arguments:
     --browsers BROWSERS       List of browsers to test [default: firefox chromium edge]
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
+    --out OUT                 File to output data to [default: results/results.db]
 
 Options:
     -h --help                 Show this screen 
@@ -17,7 +18,7 @@ Options:
     --warmup                  Warms up connection
 """
 
-import os, cache_control, time, random, subprocess, csv, json
+import os, cache_control, time, random, subprocess, csv, json, sqlite3
 from typing import List
 from playwright import sync_playwright
 from docopt import docopt
@@ -61,6 +62,49 @@ timingParameters = [
 ]
 parameters = experimentParameters + timingParameters
 
+big_table_fmt = {
+    "schemaVer" : "TEXT",
+    "experimentID" : "TEXT",
+    "webPage" : "TEXT",
+    "serverVersion" : "TEXT",
+    "gitHash" : "TEXT",
+    "netemParams" : "TEXT"
+    }
+
+cpu_usage_fmt = {
+    "experimentID" : "TEXT",
+    "cpuUsage" : "TEXT",
+    "ioUsage" : "TEXT",
+    "unixTime" : "INT"
+}
+
+timings_fmt = {
+    "experimentID" : "TEXT",
+    "browser" : "TEXT",
+    "server" : "TEXT",
+    "httpVersion" : "TEXT",
+    "warmup" : "BOOL",
+    "startTime" : "Float",
+    "fetchStart" : "Float",
+    "domainLookupStart" : "Float",
+    "domainLookupEnd" : "Float",
+    "connectStart" : "Float", 
+    "secureConnectionStart" : "Float",
+    "connectEnd" : "Float", 
+    "requestStart" : "Float", 
+    "responseStart" : "Float", 
+    "responseEnd" : "Float",
+    "domInteractive" : "Float",
+    "domContentLoadedEventStart" : "Float", 
+    "domContentLoadedEventEnd" : "Float", 
+    "domComplete" : "Float", 
+    "loadEventStart" : "Float",
+    "loadEventEnd" : "Float",
+}
+
+schemaVer = "1.0"
+serverVersion = "?"
+
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
@@ -72,9 +116,11 @@ def main():
     browsers = args['--browsers']
     url = args['--url']
     runs = int(args['--runs'])
-
+    out = args['--out']
     disable_caching = args['--disable_caching']
     warmup_connection = args['--warmup']
+    git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
+
 
     server_conf = "/usr/local/nginx/conf/nginx.conf"
 
@@ -84,24 +130,37 @@ def main():
     # Make sure server is running
     if "localhost" in url or "127.0.0.1" in url:
         subprocess.run("sudo systemctl restart nginx.service".split())
+    
+    # Setup data file headers  
+    if not os.path.exists(out):
+        big_table = ""
+        for key in big_table_fmt.keys():
+            big_table += f"{key} {big_table_fmt[key]}, "
+        cpu_time = ""
+        for key in cpu_usage_fmt.keys():
+            cpu_time += f"{key} {cpu_usage_fmt[key]}, "
+        timings = ""
+        for key in timings_fmt.keys():
+            timings += f"{key} {timings_fmt[key]}, "
+        create_big_db = f"CREATE TABLE big_table ({big_table[:-2]});"
+        create_cpu_db = f"CREATE TABLE cpu_time ({cpu_time[:-2]});"
+        create_timing_db = f"CREATE TABLE timings ({timings[:-2]})"
+        database = sqlite3.connect(out)  
+        database.execute(create_big_db)
+        database.execute(create_cpu_db)
+        database.execute(create_timing_db)
+        database.commit()
+    else:
+        database = sqlite3.connect(out)  
+
     with sync_playwright() as p:
         for netemParams in tqdm(options, desc="Experiments"):
             reset = RESET_FORMAT.format(DEVICE=device)
-
             call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
             experimentID = int(time.time()) # ensures no repeats
+            tableData = (schemaVer, experimentID, url, serverVersion, git_hash, netemParams)
+            writeBigTableData(tableData, database)
             for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
-                name = browser + "_" + netemParams.replace(" ", "_")
-                directoryPath = "results"
-                csvFileName = f"{directoryPath}/{name}.csv"
-
-                # Setup data file headers
-                os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
-                if not os.path.exists(csvFileName):
-                    with open(csvFileName, 'w', newline='\n') as outFile:
-                        csvWriter = csv.writer(outFile)
-                        csvWriter.writerow(parameters)
-                
                 whenRunH3 = runs * [True] + runs * [False]
                 random.shuffle(whenRunH3)
                 perServer = runs // 4
@@ -121,7 +180,8 @@ def main():
                     results["netemParams"] = netemParams
                     results["httpVersion"] = "h3" if useH3 else "h2"
                     results["warmup"] = warmup_connection
-                    writeData(results, csvFileName)
+                    results["browser"] = browser
+                    writeTimingData(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
                     # Print info from latest run and then go back lines to prevent broken progress bars
                     tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
@@ -132,10 +192,17 @@ def main():
         cache_control.add_server_caching(server_conf, 23, 9)
     print("Finished!\n")
 
-def writeData(data: json, csvFileName: str):
-    with open(csvFileName, 'a+', newline='\n') as outFile:
-        csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
-        csvWriter.writerow(data)
+def writeBigTableData(data: json, db: "Connection"):
+    insert = f"INSERT INTO big_table VALUES ({ ('?,' * len(big_table_fmt))[:-1]})"
+    db.execute(insert, data)
+    db.commit()
+
+
+def writeTimingData(data: json, db: "Connection"):
+    insert = f"INSERT INTO timings VALUES ({ ('?,' * len(timings_fmt))[:-1]})"
+    dataTuple = tuple([data[key] for key in timings_fmt.keys()])
+    db.execute(insert, dataTuple)
+    db.commit()
 
 def warmupIfSpecified(
     playwrightPage: "Page",
