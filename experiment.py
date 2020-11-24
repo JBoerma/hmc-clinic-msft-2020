@@ -127,19 +127,19 @@ def main():
                     tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
                 print("", end="\033[F\033[K")
             print("", end="\033[F\033[K")
-    call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=options)
-    experimentID = int(time.time()) # ensures no repeats
-    netemParams = options
     
     # asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
-    #     schema_version= "0",
-    #     experiment_id=  str(experimentID),
-    #     git_hash=       "0",
-    #     server_version= "0",
-    #     tc_command=     call,
-    #     tc_reset=       reset,
-    #     browsers=       browsers,
-    #     runs=           runs,
+    #     schema_version=  "0",
+    #     experiment_id=   str(int(time.time())),
+    #     git_hash=        "0",
+    #     server_version=  "0",
+    #     device=          device,
+    #     options=         options,
+    #     browsers=        browsers,
+    #     url=             url,
+    #     runs=            runs,
+    #     disable_caching= disable_caching,
+    #     warmup=          warmup_connection,
     # ))
 
     if args['--disable_caching']:
@@ -148,15 +148,20 @@ def main():
     print("Finished!\n")
 
 async def runAsyncExperiment(
-    schema_version: str, 
-    experiment_id:  str,
-    git_hash:       str, 
-    server_version: str, 
-    tc_command:     str, 
-    tc_reset:       str, 
-    browsers:       List[str],
-    runs:           int, 
+    schema_version:  str, 
+    experiment_id:   str,
+    git_hash:        str, 
+    server_version:  str, 
+    device:          str, 
+    options:         str, 
+    browsers:        List[str],
+    url:             str,
+    runs:            int, 
+    disable_caching: bool,
+    warmup:          bool,
 ): 
+    server_conf = "/usr/local/nginx/conf/nginx.conf"
+
     # TODO initialize schema tables if neccessary 
     # TODO save high-level data to table
     
