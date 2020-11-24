@@ -1,4 +1,5 @@
 from playwright import AsyncPlaywrightContextManager
+from playwright.browser import Browser
 
 async def launchBrowserAsync(
     pwInstance: AsyncPlaywrightContextManager, 
@@ -6,7 +7,7 @@ async def launchBrowserAsync(
     url: str, 
     h3: bool,
     port: str,
-) -> "Browser":
+) -> Browser:
     if browserType  ==  "firefox":
         return await launchFirefoxAsync(pwInstance, url, h3, port)
     elif browserType  ==  "chromium":
@@ -19,7 +20,7 @@ async def launchFirefoxAsync(
     url: str, 
     h3: bool,
     port: str,
-) -> "Browser":
+) -> Browser:
     firefoxPrefs = {}
     firefoxPrefs["privacy.reduceTimerPrecision"] = False
     
@@ -38,7 +39,7 @@ async def launchChromiumAsync(
     url: str, 
     h3: bool,
     port: str,
-) -> "Browser":
+) -> Browser:
     chromiumArgs = []
     if (h3):
         domain = url if "https://" not in url else url[8:]
@@ -54,7 +55,7 @@ async def launchEdgeAsync(
     url: str, 
     h3: bool,
     port: str,
-) -> "Browser":
+) -> Browser:
     edgeArgs = []
     if (h3) :
         domain = url if "https://" not in url else url[8:]
