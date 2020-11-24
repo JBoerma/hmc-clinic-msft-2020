@@ -208,14 +208,17 @@ async def runAsyncExperiment(
             experiment_runs[combo] -= 1
 
             params, server, browser, h_version = combo 
-            print(combo)
+
+            # set tc/netem params
+            call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
+            runTcCommand(call)
+
             # TODO do run 
-            # TODO set/unset tc netem if neccessary 
             # TODO save data to table 
     
-    # TODO unset tc netem
-    # TODO 
-    pass
+    # only reset after all experiments
+    reset = RESET_FORMAT.format(DEVICE=device)
+    runTcCommand(reset)    
     
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
