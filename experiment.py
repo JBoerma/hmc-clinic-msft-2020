@@ -170,6 +170,31 @@ def main():
         
     print("Finished!\n")
 
+async def getResultsAsync(
+    browser,
+    url: str, 
+    h3: bool,
+    port: str,
+    warmup: bool,
+) -> json:
+    context = await browser.newContext()
+    page = await context.newPage()
+    # warmupIfSpecified(page, url + port, warmup)
+    response = await page.goto(url + port)
+
+    # getting performance timing data
+    # if we don't stringify and parse, things break
+    timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+    timingResponse = await page.evaluate(timingFunction)
+
+    performanceTiming = json.loads(timingResponse)
+    performanceTiming['server'] = response.headers['server']
+    
+    # close context, allowing next call to use same browser
+    await context.close()
+
+    return performanceTiming
+
 async def runAsyncExperiment(
     schema_version:  str, 
     experiment_id:   str,
@@ -215,12 +240,18 @@ async def runAsyncExperiment(
             # set tc/netem params
             call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
             runTcCommand(call)
-            
+
+            # TODO: move launchBrowser outside, experiments should share browser
             browser = await launchBrowserAsync(
-                p, browser_name, url, h_version is "h3", server 
+                p, browser_name, url, h_version=="h3", server 
+            )
+            performance_timing = await getResultsAsync(
+                browser, url, h_version=="h3", server, warmup
             )
 
-            # TODO do run 
+            # TODO: move browser close outside
+            await browser.close()
+
             # TODO save data to table 
     
     # only reset after all experiments
