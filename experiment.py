@@ -170,6 +170,15 @@ def main():
         
     print("Finished!\n")
 
+async def warmupIfSpecifiedAsync(
+    playwrightPage: "Page",
+    url: str,
+    warmup: bool,
+): 
+    if warmup:
+        cache_buster = url + "?send_data_again"
+        await playwrightPage.goto(cache_buster)
+
 async def getResultsAsync(
     browser,
     url: str, 
@@ -181,7 +190,7 @@ async def getResultsAsync(
     page = await context.newPage()
 
     cache_buster = f"?{time.time()}"
-    # warmupIfSpecified(page, url + port, warmup)
+    await warmupIfSpecifiedAsync(page, url + port, warmup)
     response = await page.goto(url + port + cache_buster)
 
     # getting performance timing data
