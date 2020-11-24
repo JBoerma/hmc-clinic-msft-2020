@@ -152,6 +152,7 @@ def main():
     #     git_hash=        "0",
     #     server_version=  "0",
     #     device=          device,
+    #     servers=         [':443', ':444', ':445', ':7080/login.php'],
     #     options=         options,
     #     browsers=        browsers,
     #     url=             url,
@@ -172,7 +173,8 @@ async def runAsyncExperiment(
     git_hash:        str, 
     server_version:  str, 
     device:          str, 
-    options:         str, 
+    servers:         List[str],
+    options:         List[str], 
     browsers:        List[str],
     url:             str,
     runs:            int, 
@@ -186,10 +188,14 @@ async def runAsyncExperiment(
 
     experiment_combos = \
         [
-            (browser, version) 
+            (netem_params, server, browser, h_version) 
+            for netem_params in options
+            for server in servers
             for browser in browsers 
-            for version in ["h2", "h3"]
+            for h_version in ["h2", "h3"]
         ]
+
+    # each combination of params gets equal weight
     experiment_runs   = {combo: runs for combo in experiment_combos}
     
     async with async_playwright() as p: 
@@ -201,7 +207,8 @@ async def runAsyncExperiment(
                 continue
             experiment_runs[combo] -= 1
 
-            browser, h_version = combo 
+            params, server, browser, h_version = combo 
+            print(combo)
             # TODO do run 
             # TODO set/unset tc netem if neccessary 
             # TODO save data to table 
