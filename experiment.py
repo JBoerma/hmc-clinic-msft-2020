@@ -210,12 +210,7 @@ async def runAsyncExperiment(
     runs:            int, 
     disable_caching: bool,
     warmup:          bool,
-): 
-    # TODO initialize schema tables if neccessary 
-    # TODO save high-level data to table
-    
-    # TODO launch browsers, save them 
-
+):     
     experiment_combos = \
         [
             (netem_params, server, browser, h_version) 
@@ -239,6 +234,19 @@ async def runAsyncExperiment(
 
             params, server, browser_name, h_version = combo 
 
+            # #####################################################
+            # TODO: replace logic after schema is merged
+            name = browser_name + "_" + params.replace(" ", "_")
+            directoryPath = "results"
+            csvFileName = f"{directoryPath}/{name}.csv"
+            # Setup data file headers
+            os.makedirs(os.path.dirname(csvFileName), exist_ok=True)
+            if not os.path.exists(csvFileName):
+                with open(csvFileName, 'w', newline='\n') as outFile:
+                    csvWriter = csv.writer(outFile)
+                    csvWriter.writerow(parameters)
+            # #####################################################
+
             # set tc/netem params
             call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
             runTcCommand(call)
@@ -251,10 +259,18 @@ async def runAsyncExperiment(
                 browser, url, h_version=="h3", server, warmup
             )
 
+            # #####################################################
+            # TODO: replace logic after schema is merged
+            performance_timing["experimentID"] = experiment_id
+            performance_timing["netemParams"] = params
+            performance_timing["httpVersion"] = h_version
+            performance_timing["warmup"] = warmup
+            writeData(performance_timing, csvFileName)
+            # #####################################################
+
             # TODO: move browser close outside
             await browser.close()
 
-            # TODO save data to table 
     
     # only reset after all experiments
     reset = RESET_FORMAT.format(DEVICE=device)
