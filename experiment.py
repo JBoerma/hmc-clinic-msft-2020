@@ -80,7 +80,11 @@ def main():
 
     if disable_caching:
         # Assumes that there is server caching by default
-        cache_control.remove_server_caching(server_conf, 23)
+        try:
+            cache_control.remove_server_caching(server_conf, 23)
+        except FileNotFoundError:
+            print ("!!!!!!!!!!!!!!!!!!!!!!!!!! \n" +
+            "Server config not found!!!\n" + "Download https://github.com/JBoerma/hmc-clinic-msft-2020/blob/master/install/nginx.conf to ./usr/local/nginx/conf/nginx.conf")
     # Make sure server is running
     if "localhost" in url or "127.0.0.1" in url:
         subprocess.run("sudo systemctl restart nginx.service".split())
