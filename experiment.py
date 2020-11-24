@@ -19,7 +19,7 @@ Options:
 
 import os, cache_control, time, random, subprocess, csv, json
 from typing import List
-from playwright import sync_playwright
+from playwright import sync_playwright, helper
 from docopt import docopt
 from getTime import getTime
 from args import getArguments
@@ -116,15 +116,18 @@ def main():
                     whichServer = servers1 + servers2
                 # run the same experiment multiple times over h3/h2
                 for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                    results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
-                    results["experimentID"] = experimentID
-                    results["netemParams"] = netemParams
-                    results["httpVersion"] = "h3" if useH3 else "h2"
-                    results["warmup"] = warmup_connection
-                    writeData(results, csvFileName)
-                    httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                    # Print info from latest run and then go back lines to prevent broken progress bars
-                    tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
+                    try:
+                        results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
+                        results["experimentID"] = experimentID
+                        results["netemParams"] = netemParams
+                        results["httpVersion"] = "h3" if useH3 else "h2"
+                        results["warmup"] = warmup_connection
+                        writeData(results, csvFileName)
+                        httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+                        # Print info from latest run and then go back lines to prevent broken progress bars
+                        tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
+                    except:
+                        pass
                 print("", end="\033[F\033[K")
             print("", end="\033[F\033[K")
     if args['--disable_caching']:
@@ -176,12 +179,16 @@ def launchFirefox(
         domain = url if "https://" not in url else url[8:]
         firefoxPrefs["network.http.http3.enabled"] = True
         firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
-
-    browser = pwInstance.firefox.launch(
-        headless=True,
-        firefoxUserPrefs=firefoxPrefs,
-    )
-    return getResults(browser, url, h3, port, warmup)
+    try:
+        browser = pwInstance.firefox.launch(
+            headless=True,
+            firefoxUserPrefs=firefoxPrefs,
+        )
+        return getResults(browser, url, h3, port, warmup)
+    except:
+        print ( "!!!!!!!!!!!!!!!!!!!!!!!!!! \n" +
+        "Firefox browser not found!!! \n"+
+        "Maybe you want to run \"npm -i playwright-firefox\"")
 
 def launchChromium(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -200,12 +207,12 @@ def launchChromium(
             headless=True,
             args=chromiumArgs,
         )
+        return getResults(browser, url, h3, port, warmup)
     except:
-        browser =  pwInstance.chromium.launch(
-            headless=True,
-            args=chromiumArgs,
-        )
-    return getResults(browser, url, h3, port, warmup)
+        print ( "!!!!!!!!!!!!!!!!!!!!!!!!!! \n" +
+        "Chromium browser not found!!! \n"+
+        "Maybe you want to run \"npm -i playwright-chromium\"")
+
 
 def launchEdge(
     pwInstance: "SyncPlaywrightContextManager", 
@@ -224,14 +231,12 @@ def launchEdge(
             executablePath='/opt/microsoft/msedge-dev/msedge',
             args=edgeArgs,
         )
+        return getResults(browser, url, h3, port, warmup)
     except:
-        browser = pwInstance.chromium.launch(
-            headless=True,
-            executablePath='/opt/microsoft/msedge-dev/msedge',
-            args=edgeArgs,
-        )
-    return getResults(browser, url, h3, port, warmup)
-    
+        print ( "!!!!!!!!!!!!!!!!!!!!!!!!!! \n" +
+        "Edge browser not found!!! \n"+
+        "Download at https://www.microsoftedgeinsider.com/en-us/download/?platform=linux and install browser in /opt")
+
 
 def getResults (
     browser,
