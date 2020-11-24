@@ -25,6 +25,7 @@ from docopt import docopt
 from getTime import getTime
 from args import getArguments
 from tqdm import tqdm
+from sqlite3 import Connection
 
 
 # generated command line code
@@ -192,13 +193,13 @@ def main():
         cache_control.add_server_caching(server_conf, 23, 9)
     print("Finished!\n")
 
-def writeBigTableData(data: json, db: "Connection"):
+def writeBigTableData(data: json, db: Connection):
     insert = f"INSERT INTO big_table VALUES ({ ('?,' * len(big_table_fmt))[:-1]})"
     db.execute(insert, data)
     db.commit()
 
 
-def writeTimingData(data: json, db: "Connection"):
+def writeTimingData(data: json, db: Connection):
     insert = f"INSERT INTO timings VALUES ({ ('?,' * len(timings_fmt))[:-1]})"
     dataTuple = tuple([data[key] for key in timings_fmt.keys()])
     db.execute(insert, dataTuple)
