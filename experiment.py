@@ -25,6 +25,9 @@ from getTime import getTime
 from args import getArguments
 from tqdm import tqdm
 
+# separating our own imports
+from launchBrowserAsync import launchBrowserAsync
+
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -207,11 +210,15 @@ async def runAsyncExperiment(
                 continue
             experiment_runs[combo] -= 1
 
-            params, server, browser, h_version = combo 
+            params, server, browser_name, h_version = combo 
 
             # set tc/netem params
             call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
             runTcCommand(call)
+            
+            browser = await launchBrowserAsync(
+                p, browser_name, url, h_version is "h3", server 
+            )
 
             # TODO do run 
             # TODO save data to table 
