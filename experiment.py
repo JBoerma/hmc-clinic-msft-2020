@@ -69,7 +69,10 @@ def main():
         for process in processes.split("\n"):
             subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'","")
     fix_process("experiment.py", "01")
-    fix_process("nginx", "02")
+    try: # try/except to deal with 
+        fix_process("nginx", "02")
+    except subprocess.CalledProcessError as e:
+        print(f"Nginx server processes not found. Failed command: {e}")
 
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
