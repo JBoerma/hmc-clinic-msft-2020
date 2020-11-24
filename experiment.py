@@ -61,6 +61,26 @@ timingParameters = [
 ]
 parameters = experimentParameters + timingParameters
 
+# TODO: disable caching in all servers.
+def pre_experiment_setup(
+    disable_caching: bool, 
+    url:             str, 
+):
+    if disable_caching:
+        # Assumes that there is server caching by default
+        cache_control.remove_server_caching("/usr/local/nginx/conf/nginx.conf", 23)
+    # Make sure server is running
+    if "localhost" in url or "127.0.0.1" in url:
+        subprocess.run("sudo systemctl restart nginx.service".split())
+
+def post_experiment_cleanup(
+    disable_caching: bool, 
+):
+    if disable_caching:
+        # Re-enable server caching
+        cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
+
+
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
@@ -74,21 +94,19 @@ def main():
     runs = int(args['--runs'])
 
     disable_caching = args['--disable_caching']
-    warmup_connection = args['--warmup']
+    warmup_connection = args['--warmup']    
 
-    server_conf = "/usr/local/nginx/conf/nginx.conf"
+    # removes caching in nginx if necessary, starts up server
+    pre_experiment_setup(
+        disable_caching=disable_caching,
+        url            =url,
+    )
 
-    if disable_caching:
-        # Assumes that there is server caching by default
-        cache_control.remove_server_caching(server_conf, 23)
-    # Make sure server is running
-    if "localhost" in url or "127.0.0.1" in url:
-        subprocess.run("sudo systemctl restart nginx.service".split())
     with sync_playwright() as p:
         for netemParams in tqdm(options, desc="Experiments"):
             reset = RESET_FORMAT.format(DEVICE=device)
-
             call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
+
             experimentID = int(time.time()) # ensures no repeats
             for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
                 name = browser + "_" + netemParams.replace(" ", "_")
@@ -142,9 +160,10 @@ def main():
     #     warmup=          warmup_connection,
     # ))
 
-    if args['--disable_caching']:
-        # Re-enable server caching
-        cache_control.add_server_caching(server_conf, 23, 9)
+    post_experiment_cleanup(
+        disable_caching=disable_caching,
+    )
+        
     print("Finished!\n")
 
 async def runAsyncExperiment(
@@ -160,8 +179,6 @@ async def runAsyncExperiment(
     disable_caching: bool,
     warmup:          bool,
 ): 
-    server_conf = "/usr/local/nginx/conf/nginx.conf"
-
     # TODO initialize schema tables if neccessary 
     # TODO save high-level data to table
     
