@@ -179,8 +179,10 @@ async def getResultsAsync(
 ) -> json:
     context = await browser.newContext()
     page = await context.newPage()
+
+    cache_buster = f"?{time.time()}"
     # warmupIfSpecified(page, url + port, warmup)
-    response = await page.goto(url + port)
+    response = await page.goto(url + port + cache_buster)
 
     # getting performance timing data
     # if we don't stringify and parse, things break
