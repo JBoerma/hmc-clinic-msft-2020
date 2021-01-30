@@ -23,8 +23,8 @@ from typing import List, Dict, Tuple
 from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from docopt import docopt
-from getTime import getTime
-from args import getArguments
+import random
+from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
 
@@ -37,6 +37,7 @@ CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
 experimentParameters = [
+    "browser",
     "experimentID",
     "experimentStartTime",
     "netemParams", # TODO: think about better encoding
@@ -65,7 +66,7 @@ timingParameters = [
     "loadEventStart",
     "loadEventEnd",
 ]
-parameters = experimentParameters + timingParameters
+parameters = timingParameters + experimentParameters
 
 big_table_fmt = {
     "schemaVer" : "TEXT",
@@ -131,6 +132,17 @@ def post_experiment_cleanup(
 
 
 def main():   
+    # Fix the program and server processes to specific cores
+    def fix_process(process_name: str, cpu_core: str):
+        processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
+        for process in processes.split("\n"):
+            subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'","")
+    fix_process("experiment.py", "01")
+    try: # try/except to deal with 
+        fix_process("nginx", "02")
+    except subprocess.CalledProcessError as e:
+        print(f"Nginx server processes not found. Failed command: {e}")
+
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
@@ -175,6 +187,7 @@ def main():
         database = sqlite3.connect(out)  
 
     with sync_playwright() as p:
+        schema_servers = set()
         for netemParams in tqdm(options, desc="Experiments"):
             reset = RESET_FORMAT.format(DEVICE=device)
             call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
@@ -200,11 +213,13 @@ def main():
                     results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
                     results["experimentID"] = experimentID
                     results["netemParams"] = netemParams
+                    results["browser"] = browser
                     results["httpVersion"] = "h3" if useH3 else "h2"
                     results["warmup"] = warmup_connection
                     results["browser"] = browser
                     writeTimingData(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+                    schema_servers.add(results['server']) # Collect servers for big table
                     # Print info from latest run and then go back lines to prevent broken progress bars
                     tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
                 print("", end="\033[F\033[K")
