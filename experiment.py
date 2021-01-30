@@ -18,14 +18,18 @@ Options:
     --warmup                  Warms up connection
 """
 
-import os, cache_control, time, random, subprocess, json, sqlite3
-from typing import List
-from playwright import sync_playwright
+import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
+from typing import List, Dict, Tuple
+from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from docopt import docopt
 import random
 from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
+
+# separating our own imports
+from launchBrowserAsync import launchBrowserAsync
 
 
 # generated command line code
@@ -107,6 +111,26 @@ timings_fmt = {
 schemaVer = "1.0"
 serverVersion = "?"
 
+# TODO: disable caching in all servers.
+def pre_experiment_setup(
+    disable_caching: bool, 
+    url:             str, 
+):
+    if disable_caching:
+        # Assumes that there is server caching by default
+        cache_control.remove_server_caching("/usr/local/nginx/conf/nginx.conf", 23)
+    # Make sure server is running
+    if "localhost" in url or "127.0.0.1" in url:
+        subprocess.run("sudo systemctl restart nginx.service".split())
+
+def post_experiment_cleanup(
+    disable_caching: bool, 
+):
+    if disable_caching:
+        # Re-enable server caching
+        cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
+
+
 def main():   
     # Fix the program and server processes to specific cores
     def fix_process(process_name: str, cpu_core: str):
@@ -134,15 +158,11 @@ def main():
     warmup_connection = args['--warmup']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
 
-
-    server_conf = "/usr/local/nginx/conf/nginx.conf"
-
-    if disable_caching:
-        # Assumes that there is server caching by default
-        cache_control.remove_server_caching(server_conf, 23)
-    # Make sure server is running
-    if "localhost" in url or "127.0.0.1" in url:
-        subprocess.run("sudo systemctl restart nginx.service".split())
+    # removes caching in nginx if necessary, starts up server
+    pre_experiment_setup(
+        disable_caching=disable_caching,
+        url            =url,
+    )
     
     # Setup data file headers  
     if not os.path.exists(out):
@@ -166,48 +186,185 @@ def main():
     else:
         database = sqlite3.connect(out)  
 
-    with sync_playwright() as p:
-        schema_servers = set()
-        for netemParams in tqdm(options, desc="Experiments"):
-            reset = RESET_FORMAT.format(DEVICE=device)
-            call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
-            experimentID = int(time.time()) # ensures no repeats
-            tableData = (schemaVer, experimentID, url, serverVersion, git_hash, netemParams)
-            writeBigTableData(tableData, database)
-            for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
-                whenRunH3 = runs * [True] + runs * [False]
-                random.shuffle(whenRunH3)
-                perServer = runs // 4
-                # Ensure all servers are represented the same amount in H2 vs. H3
-                if runs < 4 or not args['--multi-server']:
-                    whichServer = [':443'] * (runs * 2)
-                else:
-                    servers1 = [':443', ':444', ':445', ':7080/login.php'] * perServer
-                    servers2 = [':443', ':444', ':445', ':7080/login.php'] * perServer
-                    random.shuffle(servers1)
-                    random.shuffle(servers2)
-                    whichServer = servers1 + servers2
-                # run the same experiment multiple times over h3/h2
-                for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                    results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
-                    results["experimentID"] = experimentID
-                    results["netemParams"] = netemParams
-                    results["browser"] = browser
-                    results["httpVersion"] = "h3" if useH3 else "h2"
-                    results["warmup"] = warmup_connection
-                    results["browser"] = browser
-                    writeTimingData(results, database)
-                    httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                    schema_servers.add(results['server']) # Collect servers for big table
-                    # Print info from latest run and then go back lines to prevent broken progress bars
-                    tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
-                print("", end="\033[F\033[K")
-            print("", end="\033[F\033[K")
-    if args['--disable_caching']:
-        # Re-enable server caching
-        cache_control.add_server_caching(server_conf, 23, 9)
+    # with sync_playwright() as p:
+    #     for netemParams in tqdm(options, desc="Experiments"):
+    #         reset = RESET_FORMAT.format(DEVICE=device)
+    #         call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
+
+    #         experimentID = int(time.time()) # ensures no repeats
+    #         tableData = (schemaVer, experimentID, url, serverVersion, git_hash, netemParams)
+    #         writeBigTableData(tableData, database)
+    #         for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
+    #             whenRunH3 = runs * [True] + runs * [False]
+    #             random.shuffle(whenRunH3)
+    #             perServer = runs // 4
+    #             # Ensure all servers are represented the same amount in H2 vs. H3
+    #             if runs < 4 or not args['--multi-server']:
+    #                 whichServer = [':443'] * (runs * 2)
+    #             else:
+    #                 servers1 = [':443', ':444', ':445', ':7080/login.php'] * perServer
+    #                 servers2 = [':443', ':444', ':445', ':7080/login.php'] * perServer
+    #                 random.shuffle(servers1)
+    #                 random.shuffle(servers2)
+    #                 whichServer = servers1 + servers2
+    #             # run the same experiment multiple times over h3/h2
+    #             for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
+    #                 results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
+    #                 results["experimentID"] = experimentID
+    #                 results["netemParams"] = netemParams
+    #                 results["httpVersion"] = "h3" if useH3 else "h2"
+    #                 results["warmup"] = warmup_connection
+    #                 results["browser"] = browser
+    #                 writeTimingData(results, database)
+    #                 httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+    #                 # Print info from latest run and then go back lines to prevent broken progress bars
+    #                 tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
+    #             print("", end="\033[F\033[K")
+    #         print("", end="\033[F\033[K")
     
+    asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
+        schema_version=  "0",
+        experiment_id=   str(int(time.time())),
+        git_hash=        git_hash,
+        server_version=  "0",
+        device=          device,
+        server_ports=    None, #[':443', ':444', ':445', ':7080/login.php'],
+        options=         options,
+        browsers=        browsers,
+        url=             url,
+        runs=            runs,
+        disable_caching= disable_caching,
+        warmup=          warmup_connection,
+        database=        database,
+    ))
+
+    post_experiment_cleanup(
+        disable_caching=disable_caching,
+    )
+        
     print("Finished!\n")
+
+async def warmupIfSpecifiedAsync(
+    playwrightPage: "Page",
+    url: str,
+    warmup: bool,
+): 
+    if warmup:
+        cache_buster = url + "?send_data_again"
+        await playwrightPage.goto(cache_buster)
+
+async def getResultsAsync(
+    browser,
+    url: str, 
+    h3: bool,
+    port: str,
+    warmup: bool,
+) -> json:
+    context = await browser.new_context()
+    page = await context.new_page()
+
+    cache_buster = f"?{time.time()}"
+    await warmupIfSpecifiedAsync(page, url + port, warmup)
+    response = await page.goto(url + port + cache_buster)
+
+    # getting performance timing data
+    # if we don't stringify and parse, things break
+    timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+    timingResponse = await page.evaluate(timingFunction)
+
+    performanceTiming = json.loads(timingResponse)
+    performanceTiming['server'] = response.headers['server']
+    
+    # close context, allowing next call to use same browser
+    await context.close()
+
+    return performanceTiming
+
+async def runAsyncExperiment(
+    schema_version:  str, 
+    experiment_id:   str,
+    git_hash:        str, 
+    server_version:  str, 
+    device:          str, 
+    server_ports:    List[str],
+    options:         List[str], 
+    browsers:        List[str],
+    url:             str,
+    runs:            int, 
+    disable_caching: bool,
+    warmup:          bool,
+    database,     
+):     
+    experiment_combos = [] 
+    
+    # TODO: fix this solution. Currently need a server_port to come up with
+    # combinations, but surver_ports are incompatible with url that is 
+    # passed in based on loigc below (url + port)
+    if server_ports: 
+        url="localhost"
+    else:
+        server_ports = [""]
+
+    for netem_params, server_port, browser, h_version in \
+        zip(options, server_ports, browsers, ["h2", "h3"]): 
+        experiment_combos.append(
+            (netem_params, server_port, browser, h_version)
+        )
+        tableData = (
+            schema_version, 
+            experiment_id, 
+            url, 
+            server_version, 
+            git_hash, 
+            netem_params
+        )
+        writeBigTableData(tableData, database)
+
+    # each combination of params gets equal weight
+    experiment_runs = {combo: runs for combo in experiment_combos}
+    
+    async with async_playwright() as p: 
+        while experiment_runs:
+            # choose a combo to work with
+            combo = random.choice(list(experiment_runs.keys()))
+            if experiment_runs[combo] == 0: 
+                del experiment_runs[combo]
+                continue
+            experiment_runs[combo] -= 1
+
+            params, server_port, browser_name, h_version = combo 
+
+            # set tc/netem params
+            call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
+            runTcCommand(call)
+
+            # TODO: move launchBrowser outside, experiments should share browser
+            browser = await launchBrowserAsync(
+                p, browser_name, url, h_version=="h3", server_port 
+            )
+            results = await getResultsAsync(
+                browser, url, h_version=="h3", server_port, warmup
+            )
+
+            results["experimentID"] = experiment_id
+            results["netemParams"] = params
+            results["httpVersion"] = h_version
+            results["warmup"] = warmup
+            results["browser"] = browser_name
+            writeTimingData(results, database)
+
+            # TODO: move browser close outside
+            await browser.close()
+
+    
+    # only reset after all experiments
+    reset = RESET_FORMAT.format(DEVICE=device)
+    runTcCommand(reset)    
+    
+def writeData(data: json, csvFileName: str):
+    with open(csvFileName, 'a+', newline='\n') as outFile:
+        csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
+        csvWriter.writerow(data)
 
 def writeBigTableData(data: json, db: Connection):
     insert = f"INSERT INTO big_table VALUES ({ ('?,' * len(big_table_fmt))[:-1]})"
@@ -263,7 +420,7 @@ def launchFirefox(
 
     browser = pwInstance.firefox.launch(
         headless=True,
-        firefoxUserPrefs=firefoxPrefs,
+        firefox_user_prefs=firefoxPrefs,
     )
     return getResults(browser, url, h3, port, warmup)
 
@@ -324,8 +481,8 @@ def getResults (
     port: str,
     warmup: bool,
 ) -> json:
-    context = browser.newContext()
-    page = context.newPage()
+    context = browser.new_context()
+    page = context.new_page()
     warmupIfSpecified(page, url + port, warmup)
     response = page.goto(url + port)
 
@@ -368,5 +525,4 @@ def runTcCommand(
 
 
 if __name__ == "__main__":
-
     main()
