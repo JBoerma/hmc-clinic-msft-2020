@@ -20,7 +20,8 @@ Options:
 
 import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
 from typing import List, Dict, Tuple
-from playwright import sync_playwright, async_playwright
+from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from docopt import docopt
 from getTime import getTime
 from args import getArguments
@@ -246,8 +247,8 @@ async def getResultsAsync(
     port: str,
     warmup: bool,
 ) -> json:
-    context = await browser.newContext()
-    page = await context.newPage()
+    context = await browser.new_context()
+    page = await context.new_page()
 
     cache_buster = f"?{time.time()}"
     await warmupIfSpecifiedAsync(page, url + port, warmup)
@@ -404,7 +405,7 @@ def launchFirefox(
 
     browser = pwInstance.firefox.launch(
         headless=True,
-        firefoxUserPrefs=firefoxPrefs,
+        firefox_user_prefs=firefoxPrefs,
     )
     return getResults(browser, url, h3, port, warmup)
 
@@ -465,8 +466,8 @@ def getResults (
     port: str,
     warmup: bool,
 ) -> json:
-    context = browser.newContext()
-    page = context.newPage()
+    context = browser.new_context()
+    page = context.new_page()
     warmupIfSpecified(page, url + port, warmup)
     response = page.goto(url + port)
 

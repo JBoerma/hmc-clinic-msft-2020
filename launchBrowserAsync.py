@@ -1,13 +1,10 @@
-from playwright import AsyncPlaywrightContextManager
-from playwright.browser import Browser
-
 async def launchBrowserAsync(
-    pwInstance: AsyncPlaywrightContextManager, 
+    pwInstance, 
     browserType: str,
     url: str, 
     h3: bool,
     port: str,
-) -> Browser:
+):
     if browserType  ==  "firefox":
         return await launchFirefoxAsync(pwInstance, url, h3, port)
     elif browserType  ==  "chromium":
@@ -16,11 +13,11 @@ async def launchBrowserAsync(
         return await launchEdgeAsync(pwInstance, url, h3, port)
 
 async def launchFirefoxAsync(
-    pwInstance: AsyncPlaywrightContextManager, 
+    pwInstance, 
     url: str, 
     h3: bool,
     port: str,
-) -> Browser:
+):
     firefoxPrefs = {}
     firefoxPrefs["privacy.reduceTimerPrecision"] = False
     
@@ -31,15 +28,15 @@ async def launchFirefoxAsync(
 
     return await pwInstance.firefox.launch(
         headless=True,
-        firefoxUserPrefs=firefoxPrefs,
+        firefox_user_prefs=firefoxPrefs,
     )
 
 async def launchChromiumAsync(
-    pwInstance: AsyncPlaywrightContextManager, 
+    pwInstance, 
     url: str, 
     h3: bool,
     port: str,
-) -> Browser:
+):
     chromiumArgs = []
     if (h3):
         domain = url if "https://" not in url else url[8:]
@@ -51,11 +48,11 @@ async def launchChromiumAsync(
     )
 
 async def launchEdgeAsync(
-    pwInstance: AsyncPlaywrightContextManager, 
+    pwInstance, 
     url: str, 
     h3: bool,
     port: str,
-) -> Browser:
+):
     edgeArgs = []
     if (h3) :
         domain = url if "https://" not in url else url[8:]
