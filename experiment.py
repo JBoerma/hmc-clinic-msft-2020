@@ -18,7 +18,7 @@ Options:
     --warmup                  Warms up connection
 """
 
-import os, cache_control, time, random, subprocess, csv, json, sqlite3
+import os, cache_control, time, random, subprocess, json, sqlite3
 from typing import List
 from playwright import sync_playwright
 from docopt import docopt
@@ -198,7 +198,7 @@ def main():
                     results["browser"] = browser
                     writeTimingData(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                    schema_servers.add(results['server']) # Collect servers for main.csv
+                    schema_servers.add(results['server']) # Collect servers for big table
                     # Print info from latest run and then go back lines to prevent broken progress bars
                     tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
                 print("", end="\033[F\033[K")
@@ -207,15 +207,6 @@ def main():
         # Re-enable server caching
         cache_control.add_server_caching(server_conf, 23, 9)
     
-    # Write experiment details to master CSV
-    schema_version = "0.1"
-    git_hash = subprocess.check_output(["git", "describe", "--always"]).strip().decode('utf-8').replace("'","")
-    webpage = url
-    experiment_details = [schema_version, str(experimentID), git_hash, \
-                            webpage, schema_servers, netemParams]
-    with open('main.csv','a',newline='\n') as fd:
-        wr = csv.writer(fd,id)
-        wr.writerow(experiment_details)
     print("Finished!\n")
 
 def writeBigTableData(data: json, db: Connection):
