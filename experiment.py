@@ -23,8 +23,8 @@ from typing import List, Dict, Tuple
 from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from docopt import docopt
-from getTime import getTime
-from args import getArguments
+import random
+from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
 
@@ -37,6 +37,7 @@ CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 
 experimentParameters = [
+    "browser",
     "experimentID",
     "experimentStartTime",
     "netemParams", # TODO: think about better encoding
@@ -65,7 +66,7 @@ timingParameters = [
     "loadEventStart",
     "loadEventEnd",
 ]
-parameters = experimentParameters + timingParameters
+parameters = timingParameters + experimentParameters
 
 big_table_fmt = {
     "schemaVer" : "TEXT",
@@ -131,6 +132,17 @@ def post_experiment_cleanup(
 
 
 def main():   
+    # Fix the program and server processes to specific cores
+    def fix_process(process_name: str, cpu_core: str):
+        processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
+        for process in processes.split("\n"):
+            subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'","")
+    fix_process("experiment.py", "01")
+    try: # try/except to deal with 
+        fix_process("nginx", "02")
+    except subprocess.CalledProcessError as e:
+        print(f"Nginx server processes not found. Failed command: {e}")
+
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
@@ -213,7 +225,7 @@ def main():
     asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
         schema_version=  "0",
         experiment_id=   str(int(time.time())),
-        git_hash=        "0",
+        git_hash=        git_hash,
         server_version=  "0",
         device=          device,
         server_ports=    None, #[':443', ':444', ':445', ':7080/login.php'],
