@@ -1,0 +1,9 @@
+{
+	experimental_http3
+	https_port 445
+}
+localhost {
+    root * /usr/local/nginx/html
+    file_server
+    tls /usr/local/nginx/conf/localhost.pem /usr/local/nginx/conf/localhost-key.pem
+}
