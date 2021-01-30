@@ -24,7 +24,7 @@ from docopt import docopt
 from getTime import getTime
 from args import getArguments
 from tqdm import tqdm
-
+from multiprocessing import Pool
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -109,9 +109,10 @@ def main():
                 whenRunH3 = runs * [True] + runs * [False]
                 random.shuffle(whenRunH3)
                 perServer = runs // 4
+                total_runs = runs *2
                 # Ensure all servers are represented the same amount in H2 vs. H3
                 if runs < 4 or not args['--multi-server']:
-                    whichServer = [':443'] * (runs * 2)
+                    whichServer = [':443'] * total_runs
                 else:
                     servers1 = [':443', ':444', ':445', ':7080/login.php'] * perServer
                     servers2 = [':443', ':444', ':445', ':7080/login.php'] * perServer
@@ -119,25 +120,57 @@ def main():
                     random.shuffle(servers2)
                     whichServer = servers1 + servers2
                 # run the same experiment multiple times over h3/h2
-                for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                    try:
-                        results = runExperiment(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup_connection)
-                        results["experimentID"] = experimentID
-                        results["netemParams"] = netemParams
-                        results["httpVersion"] = "h3" if useH3 else "h2"
-                        results["warmup"] = warmup_connection
-                        writeData(results, csvFileName)
-                        httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                        # Print info from latest run and then go back lines to prevent broken progress bars
-                        tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
-                    except:
-                        pass
+                # for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
+                #     writeExperimentAndWriteData(call, reset,p, browser, useH3, url,whichServer.pop(),warmup_connection,experimentID,netemParams, csvFileName)
+                # args_list = [[call,reset,p,browser,whenRunH3[i], url, whichServer[i], warmup_connection, experimentID, netemParams, csvFileName] for i in range(total_runs)]
+                args_list = list(zip([call]*total_runs, 
+                                [reset]*total_runs, 
+                                [p]*total_runs,
+                                [browser]*total_runs,
+                                whenRunH3, 
+                                [url]*total_runs,
+                                whichServer,
+                                [warmup_connection]*total_runs,
+                                [experimentID]*total_runs,
+                                [netemParams]*total_runs,
+                                [csvFileName]*total_runs))
+                # print(args_list)
+                with Pool(processes=4) as pool:
+                    print(pool.starmap(writeExperimentAndWriteData, args_list)) # TODO: Do not use this!!!
+                    # TODO: run this experiments multiple times as the same time is enough!!!
+                    # otherwise, use threading, instead of multiprocessing
                 print("", end="\033[F\033[K")
             print("", end="\033[F\033[K")
     if args['--disable_caching']:
         # Re-enable server caching
         cache_control.add_server_caching(server_conf, 23, 9)
     print("Finished!\n")
+
+def writeExperimentAndWriteData(
+    call, 
+    reset,
+    p,
+    browser,
+    useH3,
+    url,
+    whichServer,
+    warmup_connection,
+    experimentID,
+    netemParams,
+    csvFileName):
+    try:
+        results = runExperiment(call, reset, p, browser, useH3, url, whichServer, warmup=warmup_connection)
+        results["experimentID"] = experimentID
+        results["netemParams"] = netemParams
+        results["httpVersion"] = "h3" if useH3 else "h2"
+        results["warmup"] = warmup_connection
+        writeData(results, csvFileName)
+        httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+        # Print info from latest run and then go back lines to prevent broken progress bars
+        tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
+        print("here")
+    except:
+        pass
 
 def writeData(data: json, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
