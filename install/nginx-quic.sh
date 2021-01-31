@@ -91,7 +91,10 @@ chmod +x mkcert
 # Configure server
 echo '---------Configuring Server--------'
 sudo rm /usr/local/nginx/conf/nginx.conf
-cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx.conf
+sudo cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx.conf
+
+# add payloads
+sudo cp -r "$INSTALLDIR/payloads/" /usr/local/nginx-quic/
 
 # Add systemd service
 echo '------Adding Service---------'
