@@ -1,12 +1,13 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [options] 
+    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [options] 
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo root]
     --options OPTIONS         tc-netem conditions to apply [default: delay 0ms]
     --browsers BROWSERS       List of browsers to test [default: firefox chromium edge]
+    --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
@@ -87,6 +88,7 @@ def main():
     out = args['--out']
     disable_caching = args['--disable_caching']
     warmup_connection = args['--warmup']
+    throughput = int(args["--throughput"])
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
 
     # removes caching in nginx if necessary, starts up server
@@ -129,6 +131,7 @@ def main():
         runs=            runs,
         disable_caching= disable_caching,
         warmup=          warmup_connection,
+        throughput=      throughput,
         database=        database,
     ))
 
@@ -205,6 +208,7 @@ async def runAsyncExperiment(
     runs:            int, 
     disable_caching: bool,
     warmup:          bool,
+    throughput:      int,
     database,     
 ):     
     experiment_combos = [] 
@@ -236,37 +240,46 @@ async def runAsyncExperiment(
     experiment_runs = {combo: runs for combo in experiment_combos}
 
     async with async_playwright() as p: 
-        while experiment_runs:
+        outstanding = []
+        while experiment_runs or outstanding:
             # choose a combo to work with
-            combo = random.choice(list(experiment_runs.keys()))
-            if experiment_runs[combo] == 0: 
-                del experiment_runs[combo]
-                continue
-            experiment_runs[combo] -= 1
+            for i in range(min(throughput, len(experiment_runs))):
+                combo = random.choice(list(experiment_runs.keys()))
+                if experiment_runs[combo] == 0: 
+                    del experiment_runs[combo]
+                    continue
+                experiment_runs[combo] -= 1
 
-            params, server_port, browser_name, h_version = combo 
+                params, server_port, browser_name, h_version = combo 
 
-            # set tc/netem params
-            call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
-            run_tc_command(call)
+                # set tc/netem params
+                call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
+                run_tc_command(call)
 
-            # TODO: move launchBrowser outside, experiments should share browser
-            browser = await launch_browser_async(
-                p, browser_name, url, h_version=="h3", server_port 
-            )
-            results = await get_results_async(
-                browser, url, h_version=="h3", server_port, warmup
-            )
+                # TODO: move launchBrowser outside, experiments should share browser
+                outstanding.append((
+                    asyncio.create_task(
+                        get_results_async(
+                            p, browser_name, url, h_version=="h3", server_port, warmup
+                        )
+                    ), combo)
+                )
 
-            results["experimentID"] = experiment_id
-            results["netemParams"] = params
-            results["httpVersion"] = h_version
-            results["warmup"] = warmup
-            results["browser"] = browser_name
-            write_timing_data(results, database)
-
+            for item in outstanding:
+                (task, combo) = item
+                params, server_port, browser_name, h_version = combo 
+                if task.done():
+                    (results, browser) = task.result()
+                    results["experimentID"] = experiment_id
+                    results["netemParams"] = params
+                    results["httpVersion"] = h_version
+                    results["warmup"] = warmup
+                    results["browser"] = browser_name
+                    write_timing_data(results, database)
+                    outstanding.remove(item)
+                    asyncio.create_task(browser.close())
+            await asyncio.sleep(1)
             # TODO: move browser close outside
-            await browser.close()
 
     # only reset after all experiments
     reset = RESET_FORMAT.format(DEVICE=device)

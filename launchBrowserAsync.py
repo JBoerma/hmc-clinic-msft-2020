@@ -77,19 +77,23 @@ async def launch_edge_async(
 
 
 async def get_results_async(
-    browser,
+    p,
+    browser_name,
     url: str, 
     h3: bool,
     port: str,
     warmup: bool,
 ) -> json:
+    browser = await launch_browser_async(
+                    p, browser_name, url, h3, port 
+    )
     context = await browser.new_context()
     page = await context.new_page()
 
     cache_buster = f"?{round(time.time())}"
     await warmup_if_specified_async(page, url + port, warmup)
-    try: 
-        response = await page.goto(url + port + cache_buster)
+    try:
+        response = await page.goto(url + port)
         # getting performance timing data
         # if we don't stringify and parse, things break
         timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
@@ -100,11 +104,10 @@ async def get_results_async(
     except:
         performanceTiming = {timing : -1 for timing in timingParameters}
         performanceTiming['server'] = "Error"
-    
     # close context, allowing next call to use same browser
     await context.close()
 
-    return performanceTiming
+    return (performanceTiming, browser)
 
 
 async def warmup_if_specified_async(
