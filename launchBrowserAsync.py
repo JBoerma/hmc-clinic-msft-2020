@@ -24,7 +24,11 @@ async def launchFirefoxAsync(
     if h3:
         domain = url if "https://" not in url else url[8:]
         firefoxPrefs["network.http.http3.enabled"] = True
-        firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
+        if '446' in port:
+            firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-27={port.split('/')[0]}"
+        else:
+            firefoxPrefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
+
 
     return await pwInstance.firefox.launch(
         headless=True,
@@ -60,6 +64,6 @@ async def launchEdgeAsync(
     
     return await pwInstance.chromium.launch(
         headless=True,
-        executablePath='/opt/microsoft/msedge-dev/msedge',
+        executable_path='/opt/microsoft/msedge-dev/msedge',
         args=edgeArgs,
     )
