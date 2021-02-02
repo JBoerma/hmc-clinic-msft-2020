@@ -228,7 +228,7 @@ def main():
         git_hash=        git_hash,
         server_version=  "0",
         device=          device,
-        server_ports=    None, #[':443', ':444', ':445', ':7080/login.php'],
+        server_ports=    [':443', ':444', ':445', ':446'],
         options=         options,
         browsers=        browsers,
         url=             url,
@@ -263,18 +263,20 @@ async def getResultsAsync(
     context = await browser.new_context()
     page = await context.new_page()
 
-    cache_buster = f"?{time.time()}"
+    cache_buster = f"?{round(time.time())}"
     await warmupIfSpecifiedAsync(page, url + port, warmup)
-    response = await page.goto(url + port + cache_buster)
+    try:
+        response = await page.goto(url + port)
+        # getting performance timing data
+        # if we don't stringify and parse, things break
+        timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        timingResponse = await page.evaluate(timingFunction)
 
-    # getting performance timing data
-    # if we don't stringify and parse, things break
-    timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-    timingResponse = await page.evaluate(timingFunction)
-
-    performanceTiming = json.loads(timingResponse)
-    performanceTiming['server'] = response.headers['server']
-    
+        performanceTiming = json.loads(timingResponse)
+        performanceTiming['server'] = response.headers['server']
+    except:
+        performanceTiming = {timing : -1 for timing in timingParameters}
+        performanceTiming['server'] = "Error"
     # close context, allowing next call to use same browser
     await context.close()
 
@@ -301,12 +303,12 @@ async def runAsyncExperiment(
     # combinations, but surver_ports are incompatible with url that is 
     # passed in based on loigc below (url + port)
     if server_ports: 
-        url="localhost"
+        url="https://localhost"
     else:
         server_ports = [""]
 
-    for netem_params, server_port, browser, h_version in \
-        zip(options, server_ports, browsers, ["h2", "h3"]): 
+    stuff = [(option, port, browser, version) for option in options for port in server_ports for browser in browsers for version in ["h2", "h3"]]
+    for netem_params, server_port, browser, h_version in stuff: 
         experiment_combos.append(
             (netem_params, server_port, browser, h_version)
         )
@@ -322,7 +324,7 @@ async def runAsyncExperiment(
 
     # each combination of params gets equal weight
     experiment_runs = {combo: runs for combo in experiment_combos}
-    
+
     async with async_playwright() as p: 
         while experiment_runs:
             # choose a combo to work with
@@ -462,13 +464,13 @@ def launchEdge(
     try:
         browser = pwInstance.chromium.launch(
             headless=True,
-            executablePath='/opt/microsoft/msedge-dev/msedge',
+            executable_path='/opt/microsoft/msedge-dev/msedge',
             args=edgeArgs,
         )
     except:
         browser = pwInstance.chromium.launch(
             headless=True,
-            executablePath='/opt/microsoft/msedge-dev/msedge',
+            executable_path='/opt/microsoft/msedge-dev/msedge',
             args=edgeArgs,
         )
     return getResults(browser, url, h3, port, warmup)
