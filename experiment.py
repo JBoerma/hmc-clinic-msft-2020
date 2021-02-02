@@ -171,8 +171,8 @@ def run_sync_experiment(
                     if runs < 4 or not multi_server:
                         whichServer = [':443'] * (runs * 2)
                     else:
-                        servers1 = [':443', ':444', ':445', ':7080/login.php'] * perServer
-                        servers2 = [':443', ':444', ':445', ':7080/login.php'] * perServer
+                        servers1 = [':443', ':444', ':445', ':446'] * perServer
+                        servers2 = [':443', ':444', ':445', ':446'] * perServer
                         random.shuffle(servers1)
                         random.shuffle(servers2)
                         whichServer = servers1 + servers2
