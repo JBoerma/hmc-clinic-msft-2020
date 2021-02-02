@@ -1,4 +1,8 @@
-async def launchBrowserAsync(
+import json, time
+
+from experiment_utils import timingParameters
+
+async def launch_browser_async(
     pwInstance, 
     browserType: str,
     url: str, 
@@ -6,13 +10,14 @@ async def launchBrowserAsync(
     port: str,
 ):
     if browserType  ==  "firefox":
-        return await launchFirefoxAsync(pwInstance, url, h3, port)
+        return await launch_firefox_async(pwInstance, url, h3, port)
     elif browserType  ==  "chromium":
-        return await launchChromiumAsync(pwInstance, url, h3, port)
+        return await launch_chromium_async(pwInstance, url, h3, port)
     elif browserType  ==  "edge":
-        return await launchEdgeAsync(pwInstance, url, h3, port)
+        return await launch_edge_async(pwInstance, url, h3, port)
 
-async def launchFirefoxAsync(
+
+async def launch_firefox_async(
     pwInstance, 
     url: str, 
     h3: bool,
@@ -35,7 +40,8 @@ async def launchFirefoxAsync(
         firefox_user_prefs=firefoxPrefs,
     )
 
-async def launchChromiumAsync(
+
+async def launch_chromium_async(
     pwInstance, 
     url: str, 
     h3: bool,
@@ -51,7 +57,8 @@ async def launchChromiumAsync(
         args=chromiumArgs,
     )
 
-async def launchEdgeAsync(
+
+async def launch_edge_async(
     pwInstance, 
     url: str, 
     h3: bool,
@@ -67,3 +74,44 @@ async def launchEdgeAsync(
         executable_path='/opt/microsoft/msedge-dev/msedge',
         args=edgeArgs,
     )
+
+
+async def get_results_async(
+    browser,
+    url: str, 
+    h3: bool,
+    port: str,
+    warmup: bool,
+) -> json:
+    context = await browser.new_context()
+    page = await context.new_page()
+
+    cache_buster = f"?{round(time.time())}"
+    await warmup_if_specified_async(page, url + port, warmup)
+    try: 
+        response = await page.goto(url + port + cache_buster)
+        # getting performance timing data
+        # if we don't stringify and parse, things break
+        timingFunction = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        timingResponse = await page.evaluate(timingFunction)
+
+        performanceTiming = json.loads(timingResponse)
+        performanceTiming['server'] = response.headers['server']
+    except:
+        performanceTiming = {timing : -1 for timing in timingParameters}
+        performanceTiming['server'] = "Error"
+    
+    # close context, allowing next call to use same browser
+    await context.close()
+
+    return performanceTiming
+
+
+async def warmup_if_specified_async(
+    playwrightPage: "Page",
+    url: str,
+    warmup: bool,
+): 
+    if warmup:
+        cache_buster = url + "?send_data_again"
+        await playwrightPage.goto(cache_buster)
