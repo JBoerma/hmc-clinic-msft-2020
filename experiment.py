@@ -241,21 +241,22 @@ async def runAsyncExperiment(
 
     async with async_playwright() as p: 
         outstanding = []
-        while experiment_runs or outstanding:
+        while experiment_runs:
             # choose a combo to work with
-            for i in range(min(throughput, len(experiment_runs))):
-                combo = random.choice(list(experiment_runs.keys()))
-                if experiment_runs[combo] == 0: 
-                    del experiment_runs[combo]
-                    continue
-                experiment_runs[combo] -= 1
+            combo = random.choice(list(experiment_runs.keys()))
+            if experiment_runs[combo] <= 0: 
+                del experiment_runs[combo]
+                continue
+            experiment_runs[combo] -= 1
 
-                params, server_port, browser_name, h_version = combo 
+            params, server_port, browser_name, h_version = combo 
 
-                # set tc/netem params
-                call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
-                run_tc_command(call)
+            # set tc/netem params
+            call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
+            run_tc_command(call)
 
+            # one run is a run of "througput" page visits TODO revist this after meeting
+            for _ in range(throughput):
                 # TODO: move launchBrowser outside, experiments should share browser
                 outstanding.append((
                     asyncio.create_task(
@@ -265,25 +266,42 @@ async def runAsyncExperiment(
                     ), combo)
                 )
 
-            for item in outstanding:
-                (task, combo) = item
-                params, server_port, browser_name, h_version = combo 
-                if task.done():
-                    (results, browser) = task.result()
-                    results["experimentID"] = experiment_id
-                    results["netemParams"] = params
-                    results["httpVersion"] = h_version
-                    results["warmup"] = warmup
-                    results["browser"] = browser_name
-                    write_timing_data(results, database)
-                    outstanding.remove(item)
-                    asyncio.create_task(browser.close())
-            await asyncio.sleep(1)
+            await clean_outstanding(
+                outstanding=outstanding, 
+                warmup=warmup, 
+                database=database, 
+                experiment_id=experiment_id
+            ) 
             # TODO: move browser close outside
+        
+        while outstanding:
+            await clean_outstanding(
+                outstanding=outstanding, 
+                warmup=warmup, 
+                database=database, 
+                experiment_id=experiment_id
+            ) 
 
     # only reset after all experiments
     reset = RESET_FORMAT.format(DEVICE=device)
     run_tc_command(reset)    
+
+
+async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
+    for item in outstanding:
+        (task, combo) = item
+        params, server_port, browser_name, h_version = combo 
+        if task.done():
+            (results, browser) = task.result()
+            results["experimentID"] = experiment_id
+            results["netemParams"] = params
+            results["httpVersion"] = h_version
+            results["warmup"] = warmup
+            results["browser"] = browser_name
+            write_timing_data(results, database)
+            outstanding.remove(item)
+            asyncio.create_task(browser.close())
+    await asyncio.sleep(1) 
 
 
 if __name__ == "__main__":
