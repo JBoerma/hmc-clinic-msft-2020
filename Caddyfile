@@ -3,7 +3,7 @@
 	https_port 445
 }
 localhost {
-    root * /usr/local/nginx/html
+    root * /usr/local/nginx/payloads
     file_server
     tls /usr/local/nginx/conf/localhost.pem /usr/local/nginx/conf/localhost-key.pem
 }
