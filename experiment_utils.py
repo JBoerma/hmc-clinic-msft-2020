@@ -14,7 +14,7 @@ def run_tc_command(
             print("--------------------------")
 
 
-experimentParameters = [
+experiment_parameters = [
     "browser",
     "experimentID",
     "experimentStartTime",
@@ -24,7 +24,7 @@ experimentParameters = [
     "warmup",
 ]
 
-timingParameters = [ 
+timing_parameters = [ 
     "startTime",
     # "unloadEventStart",
     # "unloadEventEnd",
@@ -44,7 +44,7 @@ timingParameters = [
     "loadEventStart",
     "loadEventEnd",
 ]
-parameters = timingParameters + experimentParameters
+parameters = timing_parameters + experiment_parameters
 
 big_table_fmt = {
     "schemaVer" : "TEXT",
@@ -128,6 +128,6 @@ def write_big_table_data(data: json, db: Connection):
 
 def write_timing_data(data: json, db: Connection):
     insert = f"INSERT INTO timings VALUES ({ ('?,' * len(timings_fmt))[:-1]})"
-    dataTuple = tuple([data[key] for key in timings_fmt.keys()])
-    db.execute(insert, dataTuple)
+    data_tuple = tuple([data[key] for key in timings_fmt.keys()])
+    db.execute(insert, data_tuple)
     db.commit()

@@ -107,7 +107,7 @@ def main():
     #     git_hash=        git_hash,
     #     server_version=  "0",
     #     device=          device,
-    #     server_ports=    None, #[':443', ':444', ':445', ':7080/login.php'],
+    #     server_ports=    None, #[':443', ':444', ':445', ':446'],
     #     options=         options,
     #     browsers=        browsers,
     #     url=             url,
@@ -118,7 +118,7 @@ def main():
     #     multi_server=    args['--multi-server'], # TODO - remove?  
     # )
     
-    asyncio.get_event_loop().run_until_complete(runAsyncExperiment(
+    asyncio.get_event_loop().run_until_complete(run_async_experiment(
         schema_version=  "0",
         experiment_id=   str(int(time.time())),
         git_hash=        git_hash,
@@ -195,7 +195,7 @@ def run_sync_experiment(
                 print("", end="\033[F\033[K")
 
 
-async def runAsyncExperiment(
+async def run_async_experiment(
     schema_version:  str, 
     experiment_id:   str,
     git_hash:        str, 
@@ -221,7 +221,13 @@ async def runAsyncExperiment(
     else:
         server_ports = [""]
 
-    stuff = [(option, port, browser, version) for option in options for port in server_ports for browser in browsers for version in ["h2", "h3"]]
+    stuff = [(option, port, browser, version) 
+        for option in options 
+        for port in server_ports 
+        for browser in browsers 
+        for version in ["h2", "h3"]
+    ]
+
     for netem_params, server_port, browser, h_version in stuff: 
         experiment_combos.append(
             (netem_params, server_port, browser, h_version)
