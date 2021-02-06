@@ -20,7 +20,7 @@ Options:
 
 import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
 from typing import List, Dict, Tuple
-from playwright.sync_api import sync_playwright
+# from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from docopt import docopt
 import random
@@ -30,7 +30,7 @@ from sqlite3 import Connection
 
 # separating our own imports
 from launchBrowserAsync import launchBrowserAsync
-
+1.8
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -89,6 +89,7 @@ timings_fmt = {
     "browser" : "TEXT",
     "server" : "TEXT",
     "httpVersion" : "TEXT",
+    "payloadSize" : "TEXT", # TODO: change to snake
     "warmup" : "BOOL",
     "startTime" : "Float",
     "fetchStart" : "Float",
@@ -305,10 +306,11 @@ async def runAsyncExperiment(
     else:
         server_ports = [""]
 
-    for netem_params, server_port, browser, h_version in \
-        zip(options, server_ports, browsers, ["h2", "h3"]): 
+    for netem_params, server_port, browser, h_version, payload_size in \
+        zip(options, server_ports, browsers, ["h2", "h3"], ["1kb",
+        "5kb", "10kb", "50kb", "100kb", "500kb", "1mb"]): 
         experiment_combos.append(
-            (netem_params, server_port, browser, h_version)
+            (netem_params, server_port, browser, h_version, payload_size)
         )
         tableData = (
             schema_version, 
@@ -332,15 +334,16 @@ async def runAsyncExperiment(
                 continue
             experiment_runs[combo] -= 1
 
-            params, server_port, browser_name, h_version = combo 
+            params, server_port, browser_name, h_version, payload_size = combo 
 
             # set tc/netem params
             call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
             runTcCommand(call)
 
             # TODO: move launchBrowser outside, experiments should share browser
+            url_with_page_size = url + "/"+ payload_size+".txt"
             browser = await launchBrowserAsync(
-                p, browser_name, url, h_version=="h3", server_port 
+                p, browser_name, url_with_page_size, h_version=="h3", server_port 
             )
             results = await getResultsAsync(
                 browser, url, h_version=="h3", server_port, warmup
@@ -351,6 +354,7 @@ async def runAsyncExperiment(
             results["httpVersion"] = h_version
             results["warmup"] = warmup
             results["browser"] = browser_name
+            results["payloadSize"] = payload_size
             writeTimingData(results, database)
 
             # TODO: move browser close outside
@@ -361,10 +365,10 @@ async def runAsyncExperiment(
     reset = RESET_FORMAT.format(DEVICE=device)
     runTcCommand(reset)    
     
-def writeData(data: json, csvFileName: str):
-    with open(csvFileName, 'a+', newline='\n') as outFile:
-        csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
-        csvWriter.writerow(data)
+# def writeData(data: json, csvFileName: str):
+#     with open(csvFileName, 'a+', newline='\n') as outFile:
+#         csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
+#         csvWriter.writerow(data)
 
 def writeBigTableData(data: json, db: Connection):
     insert = f"INSERT INTO big_table VALUES ({ ('?,' * len(big_table_fmt))[:-1]})"

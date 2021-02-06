@@ -18,6 +18,7 @@ async def launchFirefoxAsync(
     h3: bool,
     port: str,
 ):
+    print(url)
     firefoxPrefs = {}
     firefoxPrefs["privacy.reduceTimerPrecision"] = False
     
