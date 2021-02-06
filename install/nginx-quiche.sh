@@ -45,6 +45,13 @@ then
 	source $HOME/.cargo/env
 fi
 
+if ! command -v cargo &> /dev/null
+then
+    echo 'export GOPATH=$HOME/go' >> ~/.bashrc 
+    echo 'export PATH=${PATH}:${GOPATH}/bin' >> ~/.bashrc 
+    source ~/.bashrc 
+fi
+
 curl -O https://nginx.org/download/nginx-1.16.1.tar.gz
 tar xvzf nginx-1.16.1.tar.gz
 git clone --recursive https://github.com/cloudflare/quiche

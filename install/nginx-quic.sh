@@ -39,6 +39,20 @@ cd $BUILDROOT
 # Get stuff
 echo '-----Downloading source-----'
 
+if ! command -v cargo &> /dev/null
+then
+	echo '----Installing Rust-----'
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+	source $HOME/.cargo/env
+fi
+
+if ! command -v cargo &> /dev/null
+then
+    echo 'export GOPATH=$HOME/go' >> ~/.bashrc 
+    echo 'export PATH=${PATH}:${GOPATH}/bin' >> ~/.bashrc 
+    source ~/.bashrc 
+fi
+
 # Build BoringSSL
 git clone https://boringssl.googlesource.com/boringssl 
 cd boringssl
