@@ -41,7 +41,7 @@ echo '-----Downloading source-----'
 if ! command -v cargo &> /dev/null
 then
 	echo '----Installing Rust-----'
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -y
 	source $HOME/.cargo/env
 fi
 
