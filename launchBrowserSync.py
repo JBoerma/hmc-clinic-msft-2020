@@ -1,12 +1,12 @@
 import json
 from typing import List
 
-from experiment_utils import run_tc_command
+from experiment_utils import reset_condition, apply_condition
 
 
 def do_single_experiment_sync(
-    call: str, 
-    reset: str, 
+    condition: str, 
+    device: str, 
     pw_instance: "SyncPlaywrightContextManager", 
     browser_type: str, 
     h3: bool,
@@ -15,9 +15,9 @@ def do_single_experiment_sync(
     payload: str,
     warmup: bool,
 ) -> json:
-    run_tc_command(call)
+    apply_condition(device, condition)
     results = launch_browser_sync(pw_instance, browser_type, url, h3, port, payload, warmup=warmup)
-    run_tc_command(reset)
+    reset_condition(device)
 
     return results
 

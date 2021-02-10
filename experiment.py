@@ -5,7 +5,7 @@ Usage:
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo root]
-    --options OPTIONS         tc-netem conditions to apply [default: delay 0ms]
+    --conditions CONDITIONS   List of network conditions [default: 3g-umts-lossy]
     --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
     --url URL                 URL to access [default: https://localhost]
@@ -34,7 +34,7 @@ from sqlite3 import Connection
 # separating our own imports
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
-from experiment_utils import run_tc_command, setup_data_file_headers, write_big_table_data, write_timing_data
+from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
 
 
 # generated command line code
@@ -80,10 +80,7 @@ def main():
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
-    options = args['--options']
-    # Fix docopt splitting default argument
-    if options == ["delay", "0ms"]:
-        options = ["delay 0ms"]
+    conditions = args['--conditions'].split()
     browsers = args['--browsers']
     url = args['--url']
     runs = int(args['--runs'])
@@ -112,7 +109,7 @@ def main():
             server_version=  "0",
             device=          device,
             server_ports=    None, #[':443', ':444', ':445', ':446'],
-            options=         options,
+            conditions=      conditions,
             browsers=        browsers,
             url=             url,
             runs=            runs,
@@ -131,7 +128,7 @@ def main():
             server_version=  "0",
             device=          device,
             server_ports=    [':443', ':444', ':445', ':446'],
-            options=         options,
+            conditions=       conditions,
             browsers=        browsers,
             url=             url,
             runs=            runs,
@@ -157,7 +154,7 @@ def run_sync_experiment(
     server_version:  str, 
     device:          str, 
     server_ports:    List[str],
-    options:         List[str], 
+    conditions:      List[str], 
     browsers:        List[str],
     url:             str,
     runs:            int, 
@@ -168,16 +165,13 @@ def run_sync_experiment(
     payloads:        List[str],
 ):
     with sync_playwright() as p:
-            for netemParams in tqdm(options, desc="Experiments"):
-                reset = RESET_FORMAT.format(DEVICE=device)
-                call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
+            for condition in tqdm(conditions, desc="Experiments"):
 
                 experimentID = int(time.time()) # ensures no repeats
-                tableData = (schemaVer, experimentID, url, serverVersion, git_hash, netemParams)
+                tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
                 for payload in payloads:
-                    print( "line 179," ,payload)
-                    for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
+                    for browser in tqdm(browsers, f"Browsers for '{condition}'"):
                         whenRunH3 = runs * [True] + runs * [False]
                         random.shuffle(whenRunH3)
                         perServer = runs // 4
@@ -192,15 +186,14 @@ def run_sync_experiment(
                             whichServer = servers1 + servers2
                         # run the same experiment multiple times over h3/h2
                         for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                            # results = do_single_experiment_sync(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
-                            results = do_single_experiment_sync(call, reset, p, browser, useH3, url, '', payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
-
-                            results["experimentID"] = experimentID
-                            results["netemParams"] = netemParams
-                            results["httpVersion"] = "h3" if useH3 else "h2"
+                            # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
+                            results = do_single_experiment_sync(condition, device, p, browser, useH3, url, '', payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
+                            results["experimentID"] = experimentID 
+                            results["httpVersion"] = "h3" if useH3 else "h2" 
                             results["warmup"] = warmup
-                            results["browser"] = browser
-                            results["payloadSize"] = payload
+                            results["browser"] = browser 
+                            results["payloadSize"] = payload 
+                            # TODO: currently missing server, add server
                             write_timing_data(results, database)
                             httpVersion = "HTTP/3" if useH3 else "HTTP/2"
                             # Print info from latest run and then go back lines to prevent broken progress bars
@@ -217,7 +210,7 @@ async def run_async_experiment(
     server_version:  str, 
     device:          str, 
     server_ports:    List[str],
-    options:         List[str], 
+    conditions:      List[str], 
     browsers:        List[str],
     url:             str,
     runs:            int, 
@@ -237,17 +230,17 @@ async def run_async_experiment(
     else:
         server_ports = [""]
 
-    stuff = [(option, port, browser, version, payload) 
-        for option in options 
+    stuff = [(condition, port, browser, version, payload) 
+        for condition in conditions 
         for port in server_ports 
         for browser in browsers 
         for version in ["h2", "h3"]
         for payload in payloads
     ]
 
-    for netem_params, server_port, browser, h_version, payload in stuff: 
+    for condition, server_port, browser, h_version, payload in stuff: 
         experiment_combos.append(
-            (netem_params, server_port, browser, h_version, payload)
+            (condition, server_port, browser, h_version, payload)
         )
         tableData = (
             schema_version, 
@@ -255,7 +248,7 @@ async def run_async_experiment(
             url, 
             server_version, 
             git_hash, 
-            netem_params
+            condition
         )
         write_big_table_data(tableData, database)
 
@@ -272,11 +265,10 @@ async def run_async_experiment(
                 continue
             experiment_runs[combo] -= 1
 
-            params, server_port, browser_name, h_version, payload = combo 
+            condition, server_port, browser_name, h_version, payload = combo 
 
             # set tc/netem params
-            call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
-            run_tc_command(call)
+            apply_condition(device, condition)
 
             # one run is a run of "througput" page visits TODO revist this after meeting
             for _ in range(throughput):
@@ -306,8 +298,7 @@ async def run_async_experiment(
             ) 
 
     # only reset after all experiments
-    reset = RESET_FORMAT.format(DEVICE=device)
-    run_tc_command(reset)    
+    reset_condition(device)
 
 
 async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
