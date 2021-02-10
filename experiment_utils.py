@@ -52,7 +52,7 @@ big_table_fmt = {
     "webPage" : "TEXT",
     "serverVersion" : "TEXT",
     "gitHash" : "TEXT",
-    "netemParams" : "TEXT"
+    "netemParams" : "TEXT",
     }
 
 cpu_usage_fmt = {
@@ -67,6 +67,7 @@ timings_fmt = {
     "browser" : "TEXT",
     "server" : "TEXT",
     "httpVersion" : "TEXT",
+    "payloadSize" : "TEXT",
     "warmup" : "BOOL",
     "startTime" : "Float",
     "fetchStart" : "Float",

@@ -1,17 +1,18 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [options] 
+    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [options] [--payloads PAYLOADS] 
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo root]
     --options OPTIONS         tc-netem conditions to apply [default: delay 0ms]
-    --browsers BROWSERS       List of browsers to test [default: firefox chromium edge]
+    --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
-    --sync = BOOL             run the experiment synchronously [default: True]
+    --sync BOOL               run the experiment synchronously [default: True]
+    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb]
 
 Options:
     -h --help                 Show this screen 
@@ -92,6 +93,7 @@ def main():
     throughput = int(args["--throughput"])
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     sync = args['--sync']
+    payloads = args['--payloads'].split()
 
     # removes caching in nginx if necessary, starts up server
     pre_experiment_setup(
@@ -118,6 +120,7 @@ def main():
             warmup=          warmup_connection,
             database=        database,
             multi_server=    args['--multi-server'], # TODO - remove?  
+            payloads =       payloads
         )
     
     else:
@@ -136,6 +139,8 @@ def main():
             warmup=          warmup_connection,
             throughput=      throughput,
             database=        database,
+            payloads =       payloads
+
         ))
 
     post_experiment_cleanup(
@@ -160,6 +165,7 @@ def run_sync_experiment(
     warmup:          bool,
     database, 
     multi_server:    bool,
+    payloads:        List[str],
 ):
     with sync_playwright() as p:
             for netemParams in tqdm(options, desc="Experiments"):
@@ -169,33 +175,37 @@ def run_sync_experiment(
                 experimentID = int(time.time()) # ensures no repeats
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, netemParams)
                 write_big_table_data(tableData, database)
-                for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
-                    whenRunH3 = runs * [True] + runs * [False]
-                    random.shuffle(whenRunH3)
-                    perServer = runs // 4
-                    # Ensure all servers are represented the same amount in H2 vs. H3
-                    if runs < 4 or not multi_server:
-                        whichServer = [':443'] * (runs * 2)
-                    else:
-                        servers1 = [':443', ':444', ':445', ':446'] * perServer
-                        servers2 = [':443', ':444', ':445', ':446'] * perServer
-                        random.shuffle(servers1)
-                        random.shuffle(servers2)
-                        whichServer = servers1 + servers2
-                    # run the same experiment multiple times over h3/h2
-                    for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                        # results = do_single_experiment_sync(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
-                        results = do_single_experiment_sync(call, reset, p, browser, useH3, url, '', warmup=warmup) # TODO: replace with the line above once we have all servers loaded
+                for payload in payloads:
+                    print( "line 179," ,payload)
+                    for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
+                        whenRunH3 = runs * [True] + runs * [False]
+                        random.shuffle(whenRunH3)
+                        perServer = runs // 4
+                        # Ensure all servers are represented the same amount in H2 vs. H3
+                        if runs < 4 or not multi_server:
+                            whichServer = [':443'] * (runs * 2)
+                        else:
+                            servers1 = [':443', ':444', ':445', ':446'] * perServer
+                            servers2 = [':443', ':444', ':445', ':446'] * perServer
+                            random.shuffle(servers1)
+                            random.shuffle(servers2)
+                            whichServer = servers1 + servers2
+                        # run the same experiment multiple times over h3/h2
+                        for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
+                            # results = do_single_experiment_sync(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
+                            results = do_single_experiment_sync(call, reset, p, browser, useH3, url, '', payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
 
-                        results["experimentID"] = experimentID
-                        results["netemParams"] = netemParams
-                        results["httpVersion"] = "h3" if useH3 else "h2"
-                        results["warmup"] = warmup
-                        results["browser"] = browser
-                        write_timing_data(results, database)
-                        httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                        # Print info from latest run and then go back lines to prevent broken progress bars
-                        tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
+                            results["experimentID"] = experimentID
+                            results["netemParams"] = netemParams
+                            results["httpVersion"] = "h3" if useH3 else "h2"
+                            results["warmup"] = warmup
+                            results["browser"] = browser
+                            results["payloadSize"] = payload
+                            write_timing_data(results, database)
+                            httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+                            # Print info from latest run and then go back lines to prevent broken progress bars
+                            tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
+                        print("", end="\033[F\033[K")
                     print("", end="\033[F\033[K")
                 print("", end="\033[F\033[K")
 
@@ -215,6 +225,7 @@ async def run_async_experiment(
     warmup:          bool,
     throughput:      int,
     database,     
+    payloads:        List[str],
 ):     
     experiment_combos = [] 
     
@@ -226,16 +237,17 @@ async def run_async_experiment(
     else:
         server_ports = [""]
 
-    stuff = [(option, port, browser, version) 
+    stuff = [(option, port, browser, version, payload) 
         for option in options 
         for port in server_ports 
         for browser in browsers 
         for version in ["h2", "h3"]
+        for payload in payloads
     ]
 
-    for netem_params, server_port, browser, h_version in stuff: 
+    for netem_params, server_port, browser, h_version, payload in stuff: 
         experiment_combos.append(
-            (netem_params, server_port, browser, h_version)
+            (netem_params, server_port, browser, h_version, payload)
         )
         tableData = (
             schema_version, 
@@ -260,7 +272,7 @@ async def run_async_experiment(
                 continue
             experiment_runs[combo] -= 1
 
-            params, server_port, browser_name, h_version = combo 
+            params, server_port, browser_name, h_version, payload = combo 
 
             # set tc/netem params
             call = CALL_FORMAT.format(DEVICE=device, OPTIONS=params)
@@ -272,7 +284,7 @@ async def run_async_experiment(
                 outstanding.append((
                     asyncio.create_task(
                         get_results_async(
-                            p, browser_name, url, h_version=="h3", server_port, warmup
+                            p, browser_name, url, h_version=="h3", server_port, payload, warmup
                         )
                     ), combo)
                 )
@@ -301,7 +313,7 @@ async def run_async_experiment(
 async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
     for item in outstanding:
         (task, combo) = item
-        params, server_port, browser_name, h_version = combo 
+        params, server_port, browser_name, h_version, payload = combo 
         if task.done():
             (results, browser) = task.result()
             results["experimentID"] = experiment_id
@@ -309,6 +321,7 @@ async def clean_outstanding(outstanding: List, warmup: bool, database, experimen
             results["httpVersion"] = h_version
             results["warmup"] = warmup
             results["browser"] = browser_name
+            results["payloadSize"] = payload
             write_timing_data(results, database)
             outstanding.remove(item)
             asyncio.create_task(browser.close())
