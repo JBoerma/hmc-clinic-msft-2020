@@ -4,5 +4,5 @@ tar -xf python.tgz
 folder=$(ls | grep P)
 cd $folder
 ./configure --enable-optimizations
-make -j 8
-sudo make install
+make -j8
+sudo make -j8 install
