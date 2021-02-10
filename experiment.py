@@ -11,6 +11,7 @@ Arguments:
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
+    --sync = BOOL             run the experiment synchronously [default: True]
 
 Options:
     -h --help                 Show this screen 
@@ -90,6 +91,7 @@ def main():
     warmup_connection = args['--warmup']
     throughput = int(args["--throughput"])
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
+    sync = args['--sync']
 
     # removes caching in nginx if necessary, starts up server
     pre_experiment_setup(
@@ -100,40 +102,41 @@ def main():
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
-
-    # run_sync_experiment(
-    #     schema_version=  "0",
-    #     experiment_id=   str(int(time.time())),
-    #     git_hash=        git_hash,
-    #     server_version=  "0",
-    #     device=          device,
-    #     server_ports=    None, #[':443', ':444', ':445', ':446'],
-    #     options=         options,
-    #     browsers=        browsers,
-    #     url=             url,
-    #     runs=            runs,
-    #     disable_caching= disable_caching,
-    #     warmup=          warmup_connection,
-    #     database=        database,
-    #     multi_server=    args['--multi-server'], # TODO - remove?  
-    # )
+    if sync == 'True':
+        run_sync_experiment(
+            schema_version=  "0",
+            experiment_id=   str(int(time.time())),
+            git_hash=        git_hash,
+            server_version=  "0",
+            device=          device,
+            server_ports=    None, #[':443', ':444', ':445', ':446'],
+            options=         options,
+            browsers=        browsers,
+            url=             url,
+            runs=            runs,
+            disable_caching= disable_caching,
+            warmup=          warmup_connection,
+            database=        database,
+            multi_server=    args['--multi-server'], # TODO - remove?  
+        )
     
-    asyncio.get_event_loop().run_until_complete(run_async_experiment(
-        schema_version=  "0",
-        experiment_id=   str(int(time.time())),
-        git_hash=        git_hash,
-        server_version=  "0",
-        device=          device,
-        server_ports=    [':443', ':444', ':445', ':446'],
-        options=         options,
-        browsers=        browsers,
-        url=             url,
-        runs=            runs,
-        disable_caching= disable_caching,
-        warmup=          warmup_connection,
-        throughput=      throughput,
-        database=        database,
-    ))
+    else:
+        asyncio.get_event_loop().run_until_complete(run_async_experiment(
+            schema_version=  "0",
+            experiment_id=   str(int(time.time())),
+            git_hash=        git_hash,
+            server_version=  "0",
+            device=          device,
+            server_ports=    [':443', ':444', ':445', ':446'],
+            options=         options,
+            browsers=        browsers,
+            url=             url,
+            runs=            runs,
+            disable_caching= disable_caching,
+            warmup=          warmup_connection,
+            throughput=      throughput,
+            database=        database,
+        ))
 
     post_experiment_cleanup(
         disable_caching=disable_caching,
@@ -181,7 +184,9 @@ def run_sync_experiment(
                         whichServer = servers1 + servers2
                     # run the same experiment multiple times over h3/h2
                     for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                        results = do_single_experiment_sync(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
+                        # results = do_single_experiment_sync(call, reset, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
+                        results = do_single_experiment_sync(call, reset, p, browser, useH3, url, '', warmup=warmup) # TODO: replace with the line above once we have all servers loaded
+
                         results["experimentID"] = experimentID
                         results["netemParams"] = netemParams
                         results["httpVersion"] = "h3" if useH3 else "h2"
