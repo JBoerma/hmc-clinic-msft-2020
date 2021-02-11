@@ -101,8 +101,8 @@ git clone https://github.com/FiloSottile/mkcert && cd mkcert
 go1.15.8 build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
 go1.15.8 install
-./mkcert -install localhost
-./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
+mkcert -install localhost
+mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
     -cert-file /usr/local/nginx/conf/localhost.pem \
     localhost
 
