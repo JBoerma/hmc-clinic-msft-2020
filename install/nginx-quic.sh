@@ -100,15 +100,15 @@ git clone https://github.com/FiloSottile/mkcert && cd mkcert
 go1.15.8 build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
 go1.15.8 install
-./mkcert -install localhost
-./mkcert -key-file /usr/local/nginx-quic/conf/localhost-key.pem \
+mkcert -install localhost
+mkcert -key-file /usr/local/nginx-quic/conf/localhost-key.pem \
     -cert-file /usr/local/nginx-quic/conf/localhost.pem \
     localhost
 
 # Configure server
 echo '---------Configuring Server--------'
 
-sudo cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx-quic.conf
+sudo cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx.conf
 
 # add payloads
 sudo cp -r "$INSTALLDIR/payloads/" /usr/local/nginx/
