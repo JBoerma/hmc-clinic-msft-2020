@@ -101,24 +101,7 @@ def main():
     database = setup_data_file_headers(out=out)
 
 
-    # run_sync_experiment(
-    #     schema_version=  "0",
-    #     experiment_id=   str(int(time.time())),
-    #     git_hash=        git_hash,
-    #     server_version=  "0",
-    #     device=          device,
-    #     server_ports=    None, #[':443', ':444', ':445', ':446'],
-    #     options=         options,
-    #     browsers=        browsers,
-    #     url=             url,
-    #     runs=            runs,
-    #     disable_caching= disable_caching,
-    #     warmup=          warmup_connection,
-    #     database=        database,
-    #     multi_server=    args['--multi-server'], # TODO - remove?  
-    # )
-    
-    asyncio.get_event_loop().run_until_complete(run_async_experiment(
+    run_sync_experiment(
         schema_version=  "0",
         experiment_id=   str(int(time.time())),
         git_hash=        git_hash,
@@ -131,9 +114,26 @@ def main():
         runs=            runs,
         disable_caching= disable_caching,
         warmup=          warmup_connection,
-        throughput=      throughput,
         database=        database,
-    ))
+        multi_server=    args['--multi-server'], # TODO - remove?  
+    )
+    
+    # asyncio.get_event_loop().run_until_complete(run_async_experiment(
+    #     schema_version=  "0",
+    #     experiment_id=   str(int(time.time())),
+    #     git_hash=        git_hash,
+    #     server_version=  "0",
+    #     device=          device,
+    #     server_ports=    [':443', ':444', ':445', ':446'],
+    #     options=         options,
+    #     browsers=        browsers,
+    #     url=             url,
+    #     runs=            runs,
+    #     disable_caching= disable_caching,
+    #     warmup=          warmup_connection,
+    #     throughput=      throughput,
+    #     database=        database,
+    # ))
 
     post_experiment_cleanup(
         disable_caching=disable_caching,
@@ -169,13 +169,13 @@ def run_sync_experiment(
                 for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
                     whenRunH3 = runs * [True] + runs * [False]
                     random.shuffle(whenRunH3)
-                    perServer = runs // 4
+                    perServer = runs // len(server_ports)
                     # Ensure all servers are represented the same amount in H2 vs. H3
-                    if runs < 4 or not multi_server:
+                    if runs < len(server_ports) or not multi_server:
                         whichServer = [':443'] * (runs * 2)
                     else:
-                        servers1 = [':443', ':444', ':445', ':446'] * perServer
-                        servers2 = [':443', ':444', ':445', ':446'] * perServer
+                        servers1 = server_ports * perServer
+                        servers2 = server_ports * perServer
                         random.shuffle(servers1)
                         random.shuffle(servers2)
                         whichServer = servers1 + servers2
