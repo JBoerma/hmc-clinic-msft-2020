@@ -20,10 +20,10 @@ option_to_netemParam = {
     "4g-lte-advanced-lossy":(70, 1, 15000),
 }
 
-APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} handle 1:0 netem delay {LATENCY}ms"
-APPLY_PACKET_LOSS  = "sudo tc qdisc change dev {DEVICE} handle 1:0 netem loss {LOSS}%"
+APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms"
+APPLY_PACKET_LOSS  = "sudo tc qdisc change dev {DEVICE} root  handle 1:0 netem loss {LOSS}%"
 APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbit buffer 1600 limit 3000" #TODO: this can be wrong
-RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
+RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
 def apply_condition(
     device: str, 
@@ -32,7 +32,7 @@ def apply_condition(
     latency, loss, bandwidth = option_to_netemParam[condition]
     run_tc_command(APPLY_LATENCY.format(DEVICE = device, LATENCY = latency))
     run_tc_command(APPLY_PACKET_LOSS.format(DEVICE = device, LOSS = loss))
-    run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth))
+    # run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth))
 
 def reset_condition(
     device: str, 

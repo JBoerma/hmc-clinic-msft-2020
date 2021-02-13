@@ -4,8 +4,8 @@ Usage:
     experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [options] [--payloads PAYLOADS] 
     
 Arguments:
-    --device DEVICE           Network device to modify [default: lo root]
-    --conditions CONDITIONS   List of network conditions [default: 3g-umts-lossy]
+    --device DEVICE           Network device to modify [default: lo]
+    --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
     --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
     --url URL                 URL to access [default: https://localhost]
