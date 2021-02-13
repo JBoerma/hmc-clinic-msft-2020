@@ -80,7 +80,7 @@ if __name__ == "__main__":
         currentCPUusage+=procsCPU
         currentIOwait += ioWait
         currentProcNames+=procsList
-        print("ideally appending into an array")
+        # print("ideally appending into an array")
     # compute the differences of iotimes
     # TODO: this will be an issue when we parallize browsers, because 
     # iotime manually matches the processes column. So if we have multiple

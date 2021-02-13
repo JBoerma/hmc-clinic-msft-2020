@@ -28,6 +28,8 @@ import random
 from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
+import systemUtil
+import psutil
 
 # separating our own imports
 from launchBrowserAsync import launch_browser_async, get_results_async
@@ -64,6 +66,8 @@ def post_experiment_cleanup(
 
 
 def main():   
+    # Start system monitoring
+    util_process = subprocess.Popen(["python3", "systemUtil.py"])
     # Fix the program and server processes to specific cores
     def fix_process(process_name: str, cpu_core: str):
         processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
@@ -101,44 +105,52 @@ def main():
     database = setup_data_file_headers(out=out)
 
 
-    # run_sync_experiment(
-    #     schema_version=  "0",
-    #     experiment_id=   str(int(time.time())),
-    #     git_hash=        git_hash,
-    #     server_version=  "0",
-    #     device=          device,
-    #     server_ports=    None, #[':443', ':444', ':445', ':446'],
-    #     options=         options,
-    #     browsers=        browsers,
-    #     url=             url,
-    #     runs=            runs,
-    #     disable_caching= disable_caching,
-    #     warmup=          warmup_connection,
-    #     database=        database,
-    #     multi_server=    args['--multi-server'], # TODO - remove?  
-    # )
-    
-    asyncio.get_event_loop().run_until_complete(run_async_experiment(
+    run_sync_experiment(
         schema_version=  "0",
         experiment_id=   str(int(time.time())),
         git_hash=        git_hash,
         server_version=  "0",
         device=          device,
-        server_ports=    [':443', ':444', ':445', ':446'],
+        server_ports=    None, #[':443', ':444', ':445', ':446'],
         options=         options,
         browsers=        browsers,
         url=             url,
         runs=            runs,
         disable_caching= disable_caching,
         warmup=          warmup_connection,
-        throughput=      throughput,
         database=        database,
-    ))
+        multi_server=    args['--multi-server'], # TODO - remove?  
+    )
+    
+    # asyncio.get_event_loop().run_until_complete(run_async_experiment(
+    #     schema_version=  "0",
+    #     experiment_id=   str(int(time.time())),
+    #     git_hash=        git_hash,
+    #     server_version=  "0",
+    #     device=          device,
+    #     server_ports=    [':443', ':444', ':445', ':446'],
+    #     options=         options,
+    #     browsers=        browsers,
+    #     url=             url,
+    #     runs=            runs,
+    #     disable_caching= disable_caching,
+    #     warmup=          warmup_connection,
+    #     throughput=      throughput,
+    #     database=        database,
+    # ))
 
     post_experiment_cleanup(
         disable_caching=disable_caching,
     )
-        
+    try:
+        util_process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        # Cleaning up system monitoring subprocess
+        proc_pid = util_process.pid
+        process = psutil.Process(proc_pid)
+        for proc in process.children(recursive=True):
+            proc.kill()
+        process.kill()
     print("Finished!\n")
 
 
