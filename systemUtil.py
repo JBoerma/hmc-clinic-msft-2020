@@ -2,9 +2,12 @@ import psutil
 import time 
 import signal
 import csv
-from getTime import getTime
 import os
 import numpy
+import json
+import sys
+
+from experiment_utils import write_monitoring_data, get_time
 
 systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
@@ -13,11 +16,12 @@ def writeData(data, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
         for row in data:
+            print(row)
             csvWriter.writerow(row)
     print("wrote to {}".format(csvFileName))
 
 
-def getDataFromKernal():
+def getDataFromKernel():
     procs = os.listdir('/proc')
     procsCPU = []
     ioWait = []
@@ -59,7 +63,7 @@ class GracefulKiller:
 
 # general system information
 if __name__ == "__main__":
-    
+    experimentID = sys.argv[1]
     killer = GracefulKiller()
     currentCPUusage = []
     currentTime = []
@@ -73,9 +77,9 @@ if __name__ == "__main__":
 
     while not killer.kill_now:
         time.sleep(1)
-        procsList, procsCPU, ioWait = getDataFromKernal()
+        procsList, procsCPU, ioWait = getDataFromKernel()
         for i in range(len(procsList)):
-            currentTime.append(getTime())
+            currentTime.append(get_time())
             currentUnixTime.append(int(time.time()))
         currentCPUusage+=procsCPU
         currentIOwait += ioWait
@@ -88,5 +92,8 @@ if __name__ == "__main__":
     currentIOwait = numpy.array(currentIOwait, dtype=numpy.uint8)
     currentIOwaitDiff = numpy.diff(currentIOwait)
     zipall = zip(currentTime, currentUnixTime, currentProcNames, currentCPUusage, currentIOwait)
+    for row in zipall:
+        row_tuple = tuple([experimentID] + list(row))
+        write_monitoring_data(row_tuple)
     writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")

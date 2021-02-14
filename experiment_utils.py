@@ -1,5 +1,6 @@
 import subprocess, json, csv, os
 from sqlite3 import Connection, connect
+from datetime import datetime
 
 
 def run_tc_command(
@@ -55,12 +56,14 @@ big_table_fmt = {
     "netemParams" : "TEXT"
     }
 
-cpu_usage_fmt = {
+monitoring_fmt = {
     "experimentID" : "TEXT",
+    "currentTime" : "TEXT",
+    "unixTime" : "INT",
+    "currentProcNames" : "TEXT",
     "cpuUsage" : "TEXT",
-    "ioUsage" : "TEXT",
-    "unixTime" : "INT"
-}
+    "ioWait" : "TEXT"
+    }
 
 timings_fmt = {
     "experimentID" : "TEXT",
@@ -86,6 +89,8 @@ timings_fmt = {
     "loadEventEnd" : "Float",
 }
 
+out = "results/results.db"
+
 
 def setup_data_file_headers(
     out: str
@@ -97,18 +102,19 @@ def setup_data_file_headers(
     big_table = ""
     for key in big_table_fmt.keys():
         big_table += f"{key} {big_table_fmt[key]}, "
-    cpu_time = ""
-    for key in cpu_usage_fmt.keys():
-        cpu_time += f"{key} {cpu_usage_fmt[key]}, "
+    monitoring = ""
+    for key in monitoring_fmt.keys():
+        monitoring += f"{key} {monitoring_fmt[key]}, "
+    print(monitoring)
     timings = ""
     for key in timings_fmt.keys():
         timings += f"{key} {timings_fmt[key]}, "
     create_big_db = f"CREATE TABLE big_table ({big_table[:-2]});"
-    create_cpu_db = f"CREATE TABLE cpu_time ({cpu_time[:-2]});"
+    create_monitoring_db = f"CREATE TABLE monitoring ({monitoring[:-2]});"
     create_timing_db = f"CREATE TABLE timings ({timings[:-2]})"
     database = connect(out)  
     database.execute(create_big_db)
-    database.execute(create_cpu_db)
+    database.execute(create_monitoring_db)
     database.execute(create_timing_db)
     database.commit()
     return database
@@ -131,3 +137,12 @@ def write_timing_data(data: json, db: Connection):
     data_tuple = tuple([data[key] for key in timings_fmt.keys()])
     db.execute(insert, data_tuple)
     db.commit()
+
+def write_monitoring_data(data_tuple: tuple):
+    insert = f"INSERT INTO monitoring VALUES ({ ('?,' * len(monitoring_fmt))[:-1]})"
+    db = setup_data_file_headers(out)  
+    db.execute(insert, data_tuple)
+    db.commit()
+
+def get_time():
+    return datetime.now().strftime("%Y/%m/%d %H:%M:%S")

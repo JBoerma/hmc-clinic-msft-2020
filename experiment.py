@@ -28,10 +28,10 @@ import random
 from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
-import systemUtil
 import psutil
 
 # separating our own imports
+import systemUtil
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import run_tc_command, setup_data_file_headers, write_big_table_data, write_timing_data
@@ -66,8 +66,6 @@ def post_experiment_cleanup(
 
 
 def main():   
-    # Start system monitoring
-    util_process = subprocess.Popen(["python3", "systemUtil.py"])
     # Fix the program and server processes to specific cores
     def fix_process(process_name: str, cpu_core: str):
         processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
@@ -142,15 +140,6 @@ def main():
     post_experiment_cleanup(
         disable_caching=disable_caching,
     )
-    try:
-        util_process.wait(timeout=3)
-    except subprocess.TimeoutExpired:
-        # Cleaning up system monitoring subprocess
-        proc_pid = util_process.pid
-        process = psutil.Process(proc_pid)
-        for proc in process.children(recursive=True):
-            proc.kill()
-        process.kill()
     print("Finished!\n")
 
 
@@ -174,8 +163,11 @@ def run_sync_experiment(
             for netemParams in tqdm(options, desc="Experiments"):
                 reset = RESET_FORMAT.format(DEVICE=device)
                 call  = CALL_FORMAT.format(DEVICE=device, OPTIONS=netemParams)
-
+                
                 experimentID = int(time.time()) # ensures no repeats
+                # Start system monitoring
+                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID)])
+
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, netemParams)
                 write_big_table_data(tableData, database)
                 for browser in tqdm(browsers, f"Browsers for '{netemParams}'"):
@@ -205,6 +197,16 @@ def run_sync_experiment(
                         tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
                     print("", end="\033[F\033[K")
                 print("", end="\033[F\033[K")
+
+                try:
+                    util_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    # Cleaning up system monitoring subprocess
+                    proc_pid = util_process.pid
+                    process = psutil.Process(proc_pid)
+                    for proc in process.children(recursive=True):
+                        proc.kill()
+                    process.kill()
 
 
 async def run_async_experiment(
