@@ -61,8 +61,11 @@ monitoring_fmt = {
     "currentTime" : "TEXT",
     "unixTime" : "INT",
     "currentProcNames" : "TEXT",
-    "cpuUsage" : "TEXT",
-    "ioWait" : "INT"
+    "cpuTime" : "TEXT",
+    "ioWait" : "INT",
+    "load_1": "Float",
+    "load_5": "Float",
+    "load_15": "Float",
     }
 
 timings_fmt = {
@@ -89,6 +92,21 @@ timings_fmt = {
     "loadEventEnd" : "Float",
 }
 
+processes_fmt = {
+    "unixTime" : "INT",
+    "user" : "TEXT",
+    "pid" : "INT",
+    "CPUPercent" : "Float",
+    "MemoryPercent" : "Float",
+    "VSZ" : "INT",
+    "RSS" : "INT",
+    "TTY" : "TEXT",
+    "stat": "TEXT",
+    "start": "TEXT",
+    "Time": "TEXT",
+    "commmand": "TEXT"
+    }
+
 out = "results/results.db"
 
 
@@ -105,17 +123,22 @@ def setup_data_file_headers(
     monitoring = ""
     for key in monitoring_fmt.keys():
         monitoring += f"{key} {monitoring_fmt[key]}, "
-    print(monitoring)
     timings = ""
     for key in timings_fmt.keys():
         timings += f"{key} {timings_fmt[key]}, "
+    processes = ""
+    for key in processes_fmt.keys():
+        processes += f"{key} {processes_fmt[key]}, "
+    
     create_big_db = f"CREATE TABLE big_table ({big_table[:-2]});"
     create_monitoring_db = f"CREATE TABLE monitoring ({monitoring[:-2]});"
     create_timing_db = f"CREATE TABLE timings ({timings[:-2]})"
+    create_processes_db = f"CREATE TABLE processes ({processes[:-2]})"
     database = connect(out)  
     database.execute(create_big_db)
     database.execute(create_monitoring_db)
     database.execute(create_timing_db)
+    database.execute(create_processes_db)
     database.commit()
     return database
 
@@ -140,6 +163,12 @@ def write_timing_data(data: json, db: Connection):
 
 def write_monitoring_data(data_tuple: tuple):
     insert = f"INSERT INTO monitoring VALUES ({ ('?,' * len(monitoring_fmt))[:-1]})"
+    db = setup_data_file_headers(out)  
+    db.execute(insert, data_tuple)
+    db.commit()
+
+def write_processes_data(data_tuple: tuple):
+    insert = f"INSERT INTO processes VALUES ({ ('?,' * len(processes_fmt))[:-1]})"
     db = setup_data_file_headers(out)  
     db.execute(insert, data_tuple)
     db.commit()

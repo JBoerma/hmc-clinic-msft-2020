@@ -6,8 +6,9 @@ import os
 import numpy
 import json
 import sys
+import subprocess
 
-from experiment_utils import write_monitoring_data, get_time
+from experiment_utils import write_monitoring_data, get_time, write_processes_data
 
 systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
@@ -60,15 +61,27 @@ class GracefulKiller:
     def exit_gracefully(self, signum, frame):
         self.kill_now = True
 
+def collectProcessesData():
+    ps = subprocess.check_output(['ps', 'aux']).strip().decode('utf-8').replace("'","")
+    processes = ps.split('\n')
+    nfields = len(processes[0].split()) - 1
+    data = []
+    for row in processes[1:]:
+        data.append(tuple([int(time.time())] + row.split(None, nfields)))
+    return data
+        
 # general system information
 if __name__ == "__main__":
     experimentID = sys.argv[1]
     killer = GracefulKiller()
-    currentCPUusage = []
+    currentcpuTime = []
     currentTime = []
     currentIOwait = []
     currentProcNames = []
     currentUnixTime = []
+    currentLoad1 = []
+    currentLoad5 = []
+    currentLoad15 = []
     with open('/proc/stat', 'r') as f:
         data = f.read()
     # Time waiting for I/O to complete
@@ -76,11 +89,17 @@ if __name__ == "__main__":
 
     while not killer.kill_now:
         time.sleep(1)
+        # get a lists of browsers processes and the coresponding cpu and iowait
         procsList, procsCPU, ioWait = getDataFromKernel()
+        load1, load5, load15 = os.getloadavg()
+        # at a given moment, all the browser processes share the same load, time
         for i in range(len(procsList)):
             currentTime.append(get_time())
             currentUnixTime.append(int(time.time()))
-        currentCPUusage+=procsCPU
+            currentLoad1.append(load1)
+            currentLoad5.append(load5)
+            currentLoad15.append(load15)
+        currentcpuTime+=procsCPU
         currentIOwait += ioWait
         currentProcNames+=procsList
         # print("ideally appending into an array")
@@ -93,10 +112,13 @@ if __name__ == "__main__":
     # print(currentIOwait)
     # currentIOwaitDiff = numpy.diff(currentIOwait)
     # print(currentIOwaitDiff)
-    zipall = zip(currentTime, currentUnixTime, currentProcNames, currentCPUusage, currentIOwait)
+    zipall = zip(currentTime, currentUnixTime, currentProcNames, currentcpuTime, currentIOwait, currentLoad1, currentLoad5, currentLoad15)
     for row in zipall:
         row_tuple = tuple([experimentID] + list(row))
         # print(row_tuple)
         write_monitoring_data(row_tuple)
+    process_data = collectProcessesData()
+    for row in process_data:
+        write_processes_data(row)
     writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")
