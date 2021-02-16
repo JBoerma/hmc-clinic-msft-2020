@@ -62,7 +62,7 @@ monitoring_fmt = {
     "unixTime" : "INT",
     "currentProcNames" : "TEXT",
     "cpuUsage" : "TEXT",
-    "ioWait" : "TEXT"
+    "ioWait" : "INT"
     }
 
 timings_fmt = {

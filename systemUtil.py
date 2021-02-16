@@ -16,7 +16,6 @@ def writeData(data, csvFileName: str):
     with open(csvFileName, 'a+', newline='\n') as outFile:
         csvWriter = csv.writer(outFile)
         for row in data:
-            print(row)
             csvWriter.writerow(row)
     print("wrote to {}".format(csvFileName))
 
@@ -89,11 +88,15 @@ if __name__ == "__main__":
     # TODO: this will be an issue when we parallize browsers, because 
     # iotime manually matches the processes column. So if we have multiple
     # processes at a time, our iowait will be [actual iowait, 0, 0, ...] 
-    currentIOwait = numpy.array(currentIOwait, dtype=numpy.uint8)
-    currentIOwaitDiff = numpy.diff(currentIOwait)
+    # print(currentIOwait)
+    # currentIOwait = numpy.array(currentIOwait, dtype=numpy.int64)
+    # print(currentIOwait)
+    # currentIOwaitDiff = numpy.diff(currentIOwait)
+    # print(currentIOwaitDiff)
     zipall = zip(currentTime, currentUnixTime, currentProcNames, currentCPUusage, currentIOwait)
     for row in zipall:
         row_tuple = tuple([experimentID] + list(row))
+        # print(row_tuple)
         write_monitoring_data(row_tuple)
     writeData(zipall, systemUtilLog)
     print("ideally writing to csv file")
