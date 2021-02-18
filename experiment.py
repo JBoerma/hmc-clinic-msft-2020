@@ -193,6 +193,7 @@ def run_sync_experiment(
                             results["warmup"] = warmup
                             results["browser"] = browser 
                             results["payloadSize"] = payload 
+                            results["netemParam"] = condition
                             # TODO: currently missing server, add server
                             write_timing_data(results, database)
                             httpVersion = "HTTP/3" if useH3 else "HTTP/2"
