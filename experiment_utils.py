@@ -106,6 +106,7 @@ timings_fmt = {
     "httpVersion" : "TEXT",
     "payloadSize" : "TEXT",
     "warmup" : "BOOL",
+    "netemParams" : "TEXT",
     "startTime" : "Float",
     "fetchStart" : "Float",
     "domainLookupStart" : "Float",

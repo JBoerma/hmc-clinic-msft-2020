@@ -193,7 +193,7 @@ def run_sync_experiment(
                             results["warmup"] = warmup
                             results["browser"] = browser 
                             results["payloadSize"] = payload 
-                            results["netemParam"] = condition
+                            results["netemParams"] = condition
                             # TODO: currently missing server, add server
                             write_timing_data(results, database)
                             httpVersion = "HTTP/3" if useH3 else "HTTP/2"
@@ -305,11 +305,11 @@ async def run_async_experiment(
 async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
     for item in outstanding:
         (task, combo) = item
-        params, server_port, browser_name, h_version, payload = combo 
+        condition, server_port, browser_name, h_version, payload = combo 
         if task.done():
             (results, browser) = task.result()
             results["experimentID"] = experiment_id
-            results["netemParams"] = params
+            results["netemParams"] = condition
             results["httpVersion"] = h_version
             results["warmup"] = warmup
             results["browser"] = browser_name
