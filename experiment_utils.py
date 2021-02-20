@@ -92,6 +92,9 @@ def setup_data_file_headers(
 ):
     if os.path.exists(out):
         return connect(out)
+    
+    # if directory doesn't exist, can't connec
+    os.mkdir(os.path.dirname(out))
 
     # only if database doesn't exist 
     big_table = ""
