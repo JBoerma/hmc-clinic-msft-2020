@@ -1,8 +1,3 @@
-# Install servers
-./caddy.sh
-./nginx-quic.sh
-./nginx-quiche.sh
-./lsws.sh
 # Install playwright
 sudo apt install -y python3-pip iproute2 libdbus-glib-1-2
 pip3 install -r requirements.txt
