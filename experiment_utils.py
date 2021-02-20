@@ -21,7 +21,7 @@ option_to_netemParam = {
 }
 
 APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
-APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbit buffer 1600 limit 3000" #TODO: this can be wrong
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbit buffer 1600kbit limit 3000kbit" #TODO: this can be wrong
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
 def apply_condition(
