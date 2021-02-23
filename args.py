@@ -15,6 +15,7 @@ class ArgsHolder:
         self.browsers: List[str]     = namespace.browsers
         self.url: str                = namespace.url
         self.runs: int               = namespace.runs
+        self.payloads: List[str]     = namespace.payloads
 
 
 def parseArguments() -> argparse.Namespace: 
@@ -69,6 +70,28 @@ def parseArguments() -> argparse.Namespace:
             "default:\"%(default)s\""
         ),
         default=10,
+    )
+
+    parser.add_argument(
+         "--sync",
+        type=bool,
+        help=(
+            "Boolean: if run the experiment synchronously.\n"
+            "default:\"%(default)s\""
+        ),
+        default=True,
+    )
+
+    parser.add_argument(
+        "--payloads",
+        type=List[str],
+        choices={"1kb", "5kb", "10kb", "50kb", "100kb", "500kb", "1mb"},
+        nargs="*",
+        help=(
+            "The size of the requsting payload.\n"
+            "default:\"100kb\""
+        ),
+        default=["100kb"],
     )
 
     return parser.parse_args()

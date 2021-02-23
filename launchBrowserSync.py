@@ -1,22 +1,22 @@
 import json
 from typing import List
 
-from experiment_utils import run_tc_command
-
+from experiment_utils import reset_condition, apply_condition
 
 def do_single_experiment_sync(
-    call: str, 
-    reset: str, 
+    condition: str, 
+    device: str, 
     pw_instance: "SyncPlaywrightContextManager", 
     browser_type: str, 
     h3: bool,
     url: str,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
-    run_tc_command(call)
-    results = launch_browser_sync(pw_instance, browser_type, url, h3, port, warmup=warmup)
-    run_tc_command(reset)
+    apply_condition(device, condition)
+    results = launch_browser_sync(pw_instance, browser_type, url, h3, port, payload, warmup=warmup)
+    reset_condition(device)
 
     return results
 
@@ -27,14 +27,15 @@ def launch_browser_sync(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
     if browser_type  ==  "firefox":
-        return launch_firefox_sync(pw_instance, url, h3, port, warmup)
+        return launch_firefox_sync(pw_instance, url, h3, port, payload, warmup)
     elif browser_type  ==  "chromium":
-        return launch_chromium_sync(pw_instance, url, h3, port, warmup)
+        return launch_chromium_sync(pw_instance, url, h3, port, payload, warmup)
     elif browser_type  ==  "edge":
-        return launch_edge_sync(pw_instance, url, h3, port, warmup)
+        return launch_edge_sync(pw_instance, url, h3, port, payload, warmup)
 
 
 def launch_firefox_sync(
@@ -42,6 +43,7 @@ def launch_firefox_sync(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
     firefox_prefs = {}
@@ -59,7 +61,7 @@ def launch_firefox_sync(
         headless=True,
         firefox_user_prefs=firefox_prefs,
     )
-    return get_results_sync(browser, url, h3, port, warmup)
+    return get_results_sync(browser, url, h3, port, payload, warmup)
 
 
 def launch_chromium_sync(
@@ -67,6 +69,7 @@ def launch_chromium_sync(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
     chromium_args = []
@@ -84,7 +87,7 @@ def launch_chromium_sync(
             headless=True,
             args=chromium_args,
         )
-    return get_results_sync(browser, url, h3, port, warmup)
+    return get_results_sync(browser, url, h3, port, payload, warmup)
 
 
 def launch_edge_sync(
@@ -92,6 +95,7 @@ def launch_edge_sync(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
     edge_args = []
@@ -110,7 +114,7 @@ def launch_edge_sync(
             executable_path='/opt/microsoft/msedge-dev/msedge',
             args=edge_args,
         )
-    return get_results_sync(browser, url, h3, port, warmup)
+    return get_results_sync(browser, url, h3, port, payload, warmup)
     
 
 def get_results_sync(
@@ -118,18 +122,31 @@ def get_results_sync(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
     context = browser.new_context()
     page = context.new_page()
-    warmup_if_specified_sync(page, url + port, warmup)
-    response = page.goto(url + port)
+    print( "sync 131", payload)
+    if url == "https://localhost":
+        url = url + port + "/" + payload + ".html"
+    warmup_if_specified_sync(page, url, warmup)
+    try:
+        page.set_default_timeout(60000)
+        response = page.goto(url)
 
-    # getting performance timing data
-    # if we don't stringify and parse, things break
-    timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-    performance_timing = json.loads(page.evaluate(timing_function))
-    performance_timing['server'] = response.headers['server']
+        # getting performance timing data
+        # if we don't stringify and parse, things break
+        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        performance_timing = json.loads(page.evaluate(timing_function))
+        performance_timing['server'] = response.headers['server']
+    except:
+        print ("TIMEOUT!!!")
+        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        performance_timing = json.loads(page.evaluate(timing_function))
+        performance_timing['server'] = 'TIMEOUT'
+        pass
+
     
     browser.close()
     return performance_timing
