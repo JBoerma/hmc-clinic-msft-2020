@@ -29,7 +29,11 @@ def apply_condition(
     condition: str,
     ):
     latency, loss, bandwidth = option_to_netemParam[condition]
-    run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    commandStatus = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    if commandStatus == 1: # this means that we had some trouble running tc!
+        reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
+        print("reseting condition")
+        run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
     run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
 
 
@@ -49,6 +53,8 @@ def run_tc_command(
             print(result.args)
             print(result.stderr)
             print("--------------------------")
+            return 1 # failed
+        return 0 #success
 
 
 experiment_parameters = [
