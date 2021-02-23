@@ -101,6 +101,7 @@ def main():
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
+
     if sync == 'True':
         run_sync_experiment(
             schema_version=  "0",

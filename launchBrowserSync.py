@@ -52,7 +52,10 @@ def launch_firefox_sync(
     if h3:
         domain = url if "https://" not in url else url[8:]
         firefox_prefs["network.http.http3.enabled"] = True
-        firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
+        if '446' in port:
+            firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-27={port.split('/')[0]}"
+        else:
+            firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
 
     browser = pw_instance.firefox.launch(
         headless=True,

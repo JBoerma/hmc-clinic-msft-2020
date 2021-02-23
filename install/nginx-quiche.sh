@@ -22,7 +22,6 @@ sudo apt-get install -y \
   cmake \
   git \
   gnupg \
-  golang \
   libpcre3-dev \
   curl \
   zlib1g-dev \
@@ -41,15 +40,18 @@ echo '-----Downloading source-----'
 if ! command -v cargo &> /dev/null
 then
 	echo '----Installing Rust-----'
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -y
 	source $HOME/.cargo/env
 fi
 
-if ! command -v cargo &> /dev/null
+if ! command -v go1.15.8 &> /dev/null
 then
+    echo '----Installing Go 1.15.8-----'
     echo 'export GOPATH=$HOME/go' >> ~/.bashrc 
     echo 'export PATH=${PATH}:${GOPATH}/bin' >> ~/.bashrc 
-    source ~/.bashrc 
+    source ~/.bashrc
+    go get golang.org/dl/go1.15.8
+    source ~/.bashrc
 fi
 
 curl -O https://nginx.org/download/nginx-1.16.1.tar.gz
@@ -96,10 +98,11 @@ sudo cp $BUILDROOT/quiche/target/release/libquiche.so /lib/
 
 # Install server certificate
 git clone https://github.com/FiloSottile/mkcert && cd mkcert
-go build -ldflags "-X main.Version=$(git describe --tags)"
+go1.15.8 build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
-./mkcert -install localhost
-./mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
+go1.15.8 install
+mkcert -install localhost
+mkcert -key-file /usr/local/nginx/conf/localhost-key.pem \
     -cert-file /usr/local/nginx/conf/localhost.pem \
     localhost
 
