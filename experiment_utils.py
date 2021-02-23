@@ -21,7 +21,7 @@ option_to_netemParam = {
 }
 
 APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
-APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: this can be wrong
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
 def apply_condition(
@@ -30,10 +30,15 @@ def apply_condition(
     ):
     latency, loss, bandwidth = option_to_netemParam[condition]
     commandStatus = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    # handeling tc errors
     if commandStatus == 1: # this means that we had some trouble running tc!
         reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
         print("reseting condition")
-        run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+        retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+        if retry_command_status == 0:
+            print("resetted tc command!")
+        else:
+            print("RESET FAILED")
     run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
 
 
