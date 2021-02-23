@@ -11,7 +11,7 @@ async def launch_browser_async(
     payload: str,
 ):
     if browser_type  ==  "firefox":
-        return await launch_firefox_async(pw_instance, url, h3, port, payload)
+        return await launch_firefox_async(pw_instance, url, h3, port)
     elif browser_type  ==  "chromium":
         return await launch_chromium_async(pw_instance, url, h3, port)
     elif browser_type  ==  "edge":

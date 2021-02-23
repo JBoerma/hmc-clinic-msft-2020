@@ -3,7 +3,6 @@ from typing import List
 
 from experiment_utils import reset_condition, apply_condition
 
-
 def do_single_experiment_sync(
     condition: str, 
     device: str, 
@@ -129,13 +128,22 @@ def get_results_sync(
     if url == "https://localhost":
         url = url + port + "/" + payload + ".html"
     warmup_if_specified_sync(page, url, warmup)
-    response = page.goto(url)
+    try:
+        page.set_default_timeout(60000)
+        response = page.goto(url)
 
-    # getting performance timing data
-    # if we don't stringify and parse, things break
-    timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-    performance_timing = json.loads(page.evaluate(timing_function))
-    performance_timing['server'] = response.headers['server']
+        # getting performance timing data
+        # if we don't stringify and parse, things break
+        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        performance_timing = json.loads(page.evaluate(timing_function))
+        performance_timing['server'] = response.headers['server']
+    except:
+        print ("TIMEOUT!!!")
+        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        performance_timing = json.loads(page.evaluate(timing_function))
+        performance_timing['server'] = 'TIMEOUT'
+        pass
+
     
     browser.close()
     return performance_timing
