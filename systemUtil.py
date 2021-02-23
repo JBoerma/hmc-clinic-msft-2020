@@ -74,51 +74,27 @@ def collectProcessesData():
 if __name__ == "__main__":
     experimentID = sys.argv[1]
     killer = GracefulKiller()
-    currentcpuTime = []
-    currentTime = []
-    currentIOwait = []
-    currentProcNames = []
-    currentUnixTime = []
-    currentLoad1 = []
-    currentLoad5 = []
-    currentLoad15 = []
+    # currentcpuTime = []
+    # currentTime = []
+    # currentIOwait = []
+    # currentProcNames = []
+    # currentUnixTime = []
+    # currentLoad1 = []
+    # currentLoad5 = []
+    # currentLoad15 = []
     with open('/proc/stat', 'r') as f:
         data = f.read()
     # Time waiting for I/O to complete
     lastReading = data.split()[4]
-
+    # Write processdata
+    process_data = collectProcessesData()
+    for row in process_data:
+        write_processes_data(row)
     while not killer.kill_now:
         time.sleep(1)
         # get a lists of browsers processes and the coresponding cpu and iowait
         procsList, procsCPU, ioWait = getDataFromKernel()
         load1, load5, load15 = os.getloadavg()
-        # at a given moment, all the browser processes share the same load, time
-        for i in range(len(procsList)):
-            currentTime.append(get_time())
-            currentUnixTime.append(int(time.time()))
-            currentLoad1.append(load1)
-            currentLoad5.append(load5)
-            currentLoad15.append(load15)
-        currentcpuTime+=procsCPU
-        currentIOwait += ioWait
-        currentProcNames+=procsList
-        # print("ideally appending into an array")
-    # compute the differences of iotimes
-    # TODO: this will be an issue when we parallize browsers, because 
-    # iotime manually matches the processes column. So if we have multiple
-    # processes at a time, our iowait will be [actual iowait, 0, 0, ...] 
-    # print(currentIOwait)
-    # currentIOwait = numpy.array(currentIOwait, dtype=numpy.int64)
-    # print(currentIOwait)
-    # currentIOwaitDiff = numpy.diff(currentIOwait)
-    # print(currentIOwaitDiff)
-    zipall = zip(currentTime, currentUnixTime, currentProcNames, currentcpuTime, currentIOwait, currentLoad1, currentLoad5, currentLoad15)
-    for row in zipall:
-        row_tuple = tuple([experimentID] + list(row))
-        # print(row_tuple)
+        row_tuple = (experimentID, get_time(),int(time.time()),str(procsList), \
+            str(procsCPU), str(ioWait), load1, load5, load15) # need to turn lsits into strs
         write_monitoring_data(row_tuple)
-    process_data = collectProcessesData()
-    for row in process_data:
-        write_processes_data(row)
-    writeData(zipall, systemUtilLog)
-    print("ideally writing to csv file")
