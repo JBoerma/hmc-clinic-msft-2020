@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
+    experiment.py [--device DEVICE] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -12,7 +12,6 @@ Arguments:
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --sync BOOL               run the experiment synchronously [default: True]
     --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb]
 
 Options:
@@ -20,6 +19,7 @@ Options:
     --disable_caching         Disables caching
     --multi-server            Uses all four server ports
     --warmup                  Warms up connection
+    --async                   Run experiment asynchronously
 """
 
 import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
@@ -91,10 +91,8 @@ def main():
     throughput = int(args["--throughput"])
     ports = args['--ports']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
-    sync = args['--sync']
+    run_async = args['--async']
     payloads = args['--payloads'].split()
-    print(out)
-    print(ports)
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
     #    disable_caching=disable_caching,
@@ -105,7 +103,7 @@ def main():
     database = setup_data_file_headers(out=out)
 
 
-    if sync == 'True':
+    if not run_async:
         run_sync_experiment(
             schema_version=  "0",
             experiment_id=   str(int(time.time())),
