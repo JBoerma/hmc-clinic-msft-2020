@@ -11,6 +11,7 @@ Arguments:
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
+    --port PORT               List of ports to use (':443', ':444', ':445', ':446') [default: :443]
 
 Options:
     -h --help                 Show this screen 
@@ -89,13 +90,14 @@ def main():
     disable_caching = args['--disable_caching']
     warmup_connection = args['--warmup']
     throughput = int(args["--throughput"])
+    ports = args['--port']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
 
     # removes caching in nginx if necessary, starts up server
-    pre_experiment_setup(
-        disable_caching=disable_caching,
-        url            =url,
-    )
+    # pre_experiment_setup(
+    #    disable_caching=disable_caching,
+    #    url            =url,
+    # )
     
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
@@ -107,7 +109,7 @@ def main():
         git_hash=        git_hash,
         server_version=  "0",
         device=          device,
-        server_ports=    [':443', ':444', ':445', ':446'],
+        server_ports=    ports,
         options=         options,
         browsers=        browsers,
         url=             url,
@@ -135,9 +137,9 @@ def main():
     #     database=        database,
     # ))
 
-    post_experiment_cleanup(
-        disable_caching=disable_caching,
-    )
+    # post_experiment_cleanup(
+    #     disable_caching=disable_caching,
+    # )
         
     print("Finished!\n")
 
