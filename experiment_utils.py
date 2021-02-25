@@ -56,8 +56,8 @@ def run_tc_command(
         result = subprocess.run(command.split())
         if result.returncode > 0:
             tqdm.write("Issue running TC!")
-            tqdm.write(result.args)
-            tqdm.write(result.stderr)
+            tqdm.write(str(result.args))
+            tqdm.write(str(result.stderr))
             tqdm.write("--------------------------")
             return 1 # failed
         return 0 #success
