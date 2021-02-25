@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [options] 
+    experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--ports PORTS ...] [options] 
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo root]
@@ -11,7 +11,7 @@ Arguments:
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
-    --port PORT               List of ports to use (':443', ':444', ':445', ':446') [default: :443]
+    --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
 
 Options:
     -h --help                 Show this screen 
@@ -90,7 +90,7 @@ def main():
     disable_caching = args['--disable_caching']
     warmup_connection = args['--warmup']
     throughput = int(args["--throughput"])
-    ports = args['--port']
+    ports = args['--ports']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
 
     # removes caching in nginx if necessary, starts up server
@@ -174,7 +174,7 @@ def run_sync_experiment(
                     perServer = runs // len(server_ports)
                     # Ensure all servers are represented the same amount in H2 vs. H3
                     if runs < len(server_ports) or not multi_server:
-                        whichServer = [':443'] * (runs * 2)
+                        whichServer = server_ports * (runs * 2)
                     else:
                         servers1 = server_ports * perServer
                         servers2 = server_ports * perServer
