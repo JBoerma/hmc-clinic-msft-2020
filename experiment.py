@@ -93,7 +93,8 @@ def main():
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     sync = args['--sync']
     payloads = args['--payloads'].split()
-
+    print(out)
+    print(ports)
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
     #    disable_caching=disable_caching,
@@ -111,7 +112,7 @@ def main():
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    None, #[':443', ':444', ':445', ':446'],
+            server_ports=    ports,
             conditions=      conditions,
             browsers=        browsers,
             url=             url,
