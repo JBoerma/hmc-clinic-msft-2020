@@ -8,6 +8,7 @@ async def launch_browser_async(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
 ):
     if browser_type  ==  "firefox":
         return await launch_firefox_async(pw_instance, url, h3, port)
@@ -82,18 +83,21 @@ async def get_results_async(
     url: str, 
     h3: bool,
     port: str,
+    payload: str,
     warmup: bool,
 ) -> json:
     browser = await launch_browser_async(
-        pw_instance, browser_name, url, h3, port 
+        pw_instance, browser_name, url, h3, port , payload
     )
     context = await browser.new_context()
     page = await context.new_page()
 
+    if url == "https://localhost":
+        url = url + port + "/" + payload + ".html"
     cache_buster = f"?{round(time.time())}"
-    await warmup_if_specified_async(page, url + port + cache_buster, warmup)
+    await warmup_if_specified_async(page, url + cache_buster, warmup)
     try:
-        response = await page.goto(url + port)
+        response = await page.goto(url)
         # getting performance timing data
         # if we don't stringify and parse, things break
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''

@@ -1,17 +1,65 @@
 import subprocess, json, csv, os
 from sqlite3 import Connection, connect
 
+option_to_netemParam = {
+    # network condition   (latency, packetloss, bandwidth(download speed))
+    "2g-gprs-good":         (500, 1, 50),
+    "2g-gprs-lossy":        (650, 2, 30),
+    "edge-good":            (300, 0, 250),
+    "edge-lossy":           (500, 1, 150),
+    "3g-unts-good":         (100, 0, 400),
+    "3g-umts-lossy":        (200, 1, 200),
+    "3.5g-hspa-good":       (100, 0, 1800),
+    "3.5g-hspa-lossy":      (190, 1, 900),
+    "3.5g-hspa-plus-good":  (100, 0, 7000),
+    "3.5g-hspa-plus-lossy": (130, 1, 2000),
+    "4g-lte-good":          (100, 0, 18000),
+    "4g-lte-high-latency":  (3000, 0, 18000),
+    "4g-lte-lossy":         (120, 1, 7000),
+    "4g-lte-advanced-good": (80, 0, 25000),
+    "4g-lte-advanced-lossy":(70, 1, 15000),
+}
+
+APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
+RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
+
+def apply_condition(
+    device: str, 
+    condition: str,
+    ):
+    latency, loss, bandwidth = option_to_netemParam[condition]
+    commandStatus = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    # handeling tc errors
+    if commandStatus == 1: # this means that we had some trouble running tc!
+        reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
+        print("reseting condition")
+        retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+        if retry_command_status == 0:
+            print("resetted tc command!")
+        else:
+            print("RESET FAILED")
+    run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
+
+
+def reset_condition(
+    device: str, 
+    ):
+    run_tc_command(RESET_FORMAT.format(DEVICE = device))
 
 def run_tc_command(
     command: str,
 ):
     if command:
+        print("commands are", command)
         result = subprocess.run(command.split())
         if result.returncode > 0:
             print("Issue running TC!")
             print(result.args)
             print(result.stderr)
             print("--------------------------")
+            return 1 # failed
+        return 0 #success
 
 
 experiment_parameters = [
@@ -52,7 +100,7 @@ big_table_fmt = {
     "webPage" : "TEXT",
     "serverVersion" : "TEXT",
     "gitHash" : "TEXT",
-    "netemParams" : "TEXT"
+    "condition" : "TEXT",
     }
 
 cpu_usage_fmt = {
@@ -67,7 +115,9 @@ timings_fmt = {
     "browser" : "TEXT",
     "server" : "TEXT",
     "httpVersion" : "TEXT",
+    "payloadSize" : "TEXT",
     "warmup" : "BOOL",
+    "netemParams" : "TEXT",
     "startTime" : "Float",
     "fetchStart" : "Float",
     "domainLookupStart" : "Float",
