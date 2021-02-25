@@ -1,6 +1,7 @@
 import json
 from typing import List
 from tqdm import tqdm
+import re
 
 from experiment_utils import reset_condition, apply_condition
 
@@ -129,7 +130,8 @@ def get_results_sync(
     context = browser.new_context()
     page = context.new_page()
     tqdm.write( f"sync 131 {payload}")
-    if url == "https://localhost":
+    regex = re.compile(r"\.\D+")
+    if not regex.findall(url):
         url = url + port + "/" + payload + ".html"
     warmup_if_specified_sync(page, url, warmup)
     try:
