@@ -22,6 +22,7 @@ option_to_netemParam = {
 }
 
 APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
+APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms"
 APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
@@ -40,7 +41,10 @@ def apply_condition(
             tqdm.write("resetted tc command!")
         else:
             tqdm.write("RESET FAILED")
-    run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
+    if loss == 0:
+        run_tc_command(APPLY_LATENCY.format(DEVICE = device, LATENCY = latency))
+    else:
+        run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
 
 
 def reset_condition(
