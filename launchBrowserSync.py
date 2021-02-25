@@ -140,11 +140,11 @@ def get_results_sync(
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(page.evaluate(timing_function))
         performance_timing['server'] = response.headers['server']
-    except:
-        print ("TIMEOUT!!!")
+    except Exception as e:
+        print (str(e))
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(page.evaluate(timing_function))
-        performance_timing['server'] = 'TIMEOUT'
+        performance_timing['server'] = str(e)
         pass
 
     
