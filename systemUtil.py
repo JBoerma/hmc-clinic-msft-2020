@@ -34,7 +34,7 @@ def getDataFromKernel():
                     data = f.read()
                 stat = data.split()
                 # find the process corresponding to the browser instances
-                if stat[1] == '(firefox)' or stat[1] == '(chromium)' or stat[1] == '(edge)':
+                if str(stat[1]) in ['(firefox)', '(chrome)', '(msedge)']:
                     # add the CPU time to the list
                     procsCPU.append(int(stat[13])/hz)
                     # procsMemory.append(stat[22])
