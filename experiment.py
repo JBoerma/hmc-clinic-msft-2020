@@ -66,17 +66,6 @@ def post_experiment_cleanup(
 
 
 def main():   
-    # Fix the program and server processes to specific cores
-    def fix_process(process_name: str, cpu_core: str):
-        processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
-        for process in processes.split("\n"):
-            subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'","")
-    fix_process("experiment.py", "01")
-    try: # try/except to deal with 
-        fix_process("nginx", "02")
-    except subprocess.CalledProcessError as e:
-        print(f"Nginx server processes not found. Failed command: {e}")
-
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
@@ -167,29 +156,28 @@ def run_sync_experiment(
                 experimentID = int(time.time()) # ensures no repeats
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
-                for payload in payloads:
-                    for browser in tqdm(browsers, f"Browsers for '{condition}'"):
-                        whenRunH3 = [(True, port) for port in server_ports * runs] + [(False, port) for port in server_ports * runs]
-                        random.shuffle(whenRunH3)
-
-                        # run the same experiment multiple times over h3/h2
-                        for (useH3, whichServer) in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                            # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
-                            results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
-                            results["experimentID"] = experimentID 
-                            results["httpVersion"] = "h3" if useH3 else "h2" 
-                            results["warmup"] = warmup
-                            results["browser"] = browser 
-                            results["payloadSize"] = payload 
-                            results["netemParams"] = condition
-                            # TODO: currently missing server, add server
-                            write_timing_data(results, database)
-                            httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                            # Print info from latest run and then go back lines to prevent broken progress bars
-                            tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
-                        print("", end="\033[F\033[K")
-                    print("", end="\033[F\033[K")
-                print("", end="\033[F\033[K")
+                whenRunH3 = [(h3, port, payload, browser) 
+                                for browser in browsers 
+                                for payload in payloads 
+                                for port in server_ports * runs 
+                                for h3 in [True, False]
+                            ]
+                random.shuffle(whenRunH3)
+                # run the same experiment multiple times over h3/h2
+                for (useH3, whichServer, payload, browser) in tqdm(whenRunH3):
+                    # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
+                    results["experimentID"] = experimentID 
+                    results["httpVersion"] = "h3" if useH3 else "h2" 
+                    results["warmup"] = warmup
+                    results["browser"] = browser 
+                    results["payloadSize"] = payload 
+                    results["netemParams"] = condition
+                    # TODO: currently missing server, add server
+                    write_timing_data(results, database)
+                    httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+                    # Print info from latest run and then go back lines to prevent broken progress bars
+                    tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
 
 
 async def run_async_experiment(
