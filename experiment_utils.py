@@ -32,21 +32,23 @@ def apply_condition(
     condition: str,
     ):
     latency, loss, bandwidth = option_to_netemParam[condition]
-    commandStatus = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    commandStatus = 0 # run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
     # handeling tc errors
+    command = ""
+    if loss == 0:
+        command = APPLY_LATENCY.format(DEVICE = device, LATENCY = latency)
+    else:
+        command = APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss)
+    commandStatus = run_tc_command(command)
     if commandStatus == 1: # this means that we had some trouble running tc!
         reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
         tqdm.write("reseting condition")
-        retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+        retry_command_status = run_tc_command(command)
         if retry_command_status == 0:
             tqdm.write("reset tc command!")
         else:
             tqdm.write("RESET FAILED")
-    if loss == 0:
-        run_tc_command(APPLY_LATENCY.format(DEVICE = device, LATENCY = latency))
-    else:
-        run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
-
+    run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
 
 def reset_condition(
     device: str, 
