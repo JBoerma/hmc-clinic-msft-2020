@@ -1,6 +1,6 @@
 import json
 from typing import List
-
+import playwright
 from experiment_utils import reset_condition, apply_condition
 
 def do_single_experiment_sync(
@@ -14,8 +14,10 @@ def do_single_experiment_sync(
     payload: str,
     warmup: bool,
 ) -> json:
-    apply_condition(device, condition)
+    condition_status = apply_condition(device, condition)
     results = launch_browser_sync(pw_instance, browser_type, url, h3, port, payload, warmup=warmup)
+    if condition_status == 1:
+        results['error'] += ' TC' #TC not set properly  
     reset_condition(device)
 
     return results
@@ -127,7 +129,6 @@ def get_results_sync(
 ) -> json:
     context = browser.new_context()
     page = context.new_page()
-    print( "sync 131", payload)
     if url == "https://localhost":
         url = url + port + "/" + payload + ".html"
     warmup_if_specified_sync(page, url, warmup)
@@ -140,15 +141,22 @@ def get_results_sync(
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(page.evaluate(timing_function))
         performance_timing['server'] = response.headers['server']
-    except:
-        print ("TIMEOUT!!!")
+        # log in response status
+        status = response.status
+        if  status!=200:
+            performance_timing['error'] = str(response.status)
+        else:
+            performance_timing['error'] = "na"
+    except playwright._impl._api_types.TimeoutError:
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(page.evaluate(timing_function))
-        performance_timing['server'] = 'TIMEOUT'
-        pass
-
-    
-    browser.close()
+        performance_timing['error'] = "timeOut"
+        performance_timing['server'] = "N/A"
+    except:
+        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        performance_timing = json.loads(page.evaluate(timing_function))
+        performance_timing['error'] = "other"
+        performance_timing['server'] = "N/A"
     return performance_timing
 
 

@@ -5,14 +5,14 @@ Usage:
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
-    --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
+    --conditions CONDITIONS   List of network conditions [default: 4g-lte-good 3g-unts-good]
     --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
     --url URL                 URL to access [default: https://localhost]
-    --runs RUNS               Number of runs in the experiment [default: 1]
+    --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --sync BOOL               run the experiment synchronously [default: True]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb]
+    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 5kb 10kb 50kb]
 
 Options:
     -h --help                 Show this screen 

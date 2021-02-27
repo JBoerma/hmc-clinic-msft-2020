@@ -33,13 +33,12 @@ def apply_condition(
     # handeling tc errors
     if commandStatus == 1: # this means that we had some trouble running tc!
         reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
-        print("reseting condition")
         retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
         if retry_command_status == 0:
-            print("resetted tc command!")
+            return run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
         else:
-            print("RESET FAILED")
-    run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
+            return 1 # this means that condition unsuccesfully applied
+    return run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
 
 
 def reset_condition(
@@ -134,6 +133,7 @@ timings_fmt = {
     "domComplete" : "Float", 
     "loadEventStart" : "Float",
     "loadEventEnd" : "Float",
+    "error": "TEXT",
 }
 
 
