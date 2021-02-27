@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -69,7 +69,7 @@ def main():
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
-    conditions = args['--conditions'].split()
+    conditions = args['--conditions']
     browsers = args['--browsers']
     url = args['--url']
     runs = int(args['--runs'])
