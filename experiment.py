@@ -30,8 +30,10 @@ import random
 from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
+import psutil
 
 # separating our own imports
+import systemUtil
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
@@ -154,6 +156,8 @@ def run_sync_experiment(
     with sync_playwright() as p:
             for condition in tqdm(conditions, desc="Experiments"):
                 experimentID = int(time.time()) # ensures no repeats
+                # Start system monitoring
+                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID)])
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
                 whenRunH3 = [(h3, port, payload, browser) 
@@ -178,6 +182,16 @@ def run_sync_experiment(
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
                     # Print info from latest run and then go back lines to prevent broken progress bars
                     tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
+
+                try:
+                    util_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    # Cleaning up system monitoring subprocess
+                    proc_pid = util_process.pid
+                    process = psutil.Process(proc_pid)
+                    for proc in process.children(recursive=True):
+                        proc.kill()
+                    process.kill()
 
 
 async def run_async_experiment(

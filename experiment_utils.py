@@ -1,5 +1,6 @@
 import subprocess, json, csv, os
 from sqlite3 import Connection, connect
+from datetime import datetime
 from tqdm import tqdm
 
 option_to_netemParam = {
@@ -38,7 +39,7 @@ def apply_condition(
         tqdm.write("reseting condition")
         retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
         if retry_command_status == 0:
-            tqdm.write("resetted tc command!")
+            tqdm.write("reset tc command!")
         else:
             tqdm.write("RESET FAILED")
     if loss == 0:
@@ -54,6 +55,7 @@ def reset_condition(
 
 def run_tc_command(
     command: str,
+    
 ):
     if command:
         tqdm.write(f"commands are {command}")
@@ -108,12 +110,17 @@ big_table_fmt = {
     "condition" : "TEXT",
     }
 
-cpu_usage_fmt = {
+monitoring_fmt = {
     "experimentID" : "TEXT",
-    "cpuUsage" : "TEXT",
-    "ioUsage" : "TEXT",
-    "unixTime" : "INT"
-}
+    "currentTime" : "TEXT",
+    "unixTime" : "INT",
+    "currentProcNames" : "TEXT",
+    "cpuTime" : "TEXT",
+    "ioWait" : "INT",
+    "load_1": "Float",
+    "load_5": "Float",
+    "load_15": "Float",
+    }
 
 timings_fmt = {
     "experimentID" : "TEXT",
@@ -141,6 +148,23 @@ timings_fmt = {
     "loadEventEnd" : "Float",
 }
 
+processes_fmt = {
+    "unixTime" : "INT",
+    "user" : "TEXT",
+    "pid" : "INT",
+    "CPUPercent" : "Float",
+    "MemoryPercent" : "Float",
+    "VSZ" : "INT",
+    "RSS" : "INT",
+    "TTY" : "TEXT",
+    "stat": "TEXT",
+    "start": "TEXT",
+    "Time": "TEXT",
+    "commmand": "TEXT"
+    }
+
+out = "results/results.db"
+
 
 def setup_data_file_headers(
     out: str
@@ -157,19 +181,25 @@ def setup_data_file_headers(
     big_table = ""
     for key in big_table_fmt.keys():
         big_table += f"{key} {big_table_fmt[key]}, "
-    cpu_time = ""
-    for key in cpu_usage_fmt.keys():
-        cpu_time += f"{key} {cpu_usage_fmt[key]}, "
+    monitoring = ""
+    for key in monitoring_fmt.keys():
+        monitoring += f"{key} {monitoring_fmt[key]}, "
     timings = ""
     for key in timings_fmt.keys():
         timings += f"{key} {timings_fmt[key]}, "
+    processes = ""
+    for key in processes_fmt.keys():
+        processes += f"{key} {processes_fmt[key]}, "
+    
     create_big_db = f"CREATE TABLE big_table ({big_table[:-2]});"
-    create_cpu_db = f"CREATE TABLE cpu_time ({cpu_time[:-2]});"
+    create_monitoring_db = f"CREATE TABLE monitoring ({monitoring[:-2]});"
     create_timing_db = f"CREATE TABLE timings ({timings[:-2]})"
+    create_processes_db = f"CREATE TABLE processes ({processes[:-2]})"
     database = connect(out)  
     database.execute(create_big_db)
-    database.execute(create_cpu_db)
+    database.execute(create_monitoring_db)
     database.execute(create_timing_db)
+    database.execute(create_processes_db)
     database.commit()
     return database
 
@@ -191,3 +221,18 @@ def write_timing_data(data: json, db: Connection):
     data_tuple = tuple([data[key] for key in timings_fmt.keys()])
     db.execute(insert, data_tuple)
     db.commit()
+
+def write_monitoring_data(data_tuple: tuple):
+    insert = f"INSERT INTO monitoring VALUES ({ ('?,' * len(monitoring_fmt))[:-1]})"
+    db = setup_data_file_headers(out)  
+    db.execute(insert, data_tuple)
+    db.commit()
+
+def write_processes_data(data_tuple: tuple):
+    insert = f"INSERT INTO processes VALUES ({ ('?,' * len(processes_fmt))[:-1]})"
+    db = setup_data_file_headers(out)  
+    db.execute(insert, data_tuple)
+    db.commit()
+
+def get_time():
+    return datetime.now().strftime("%Y/%m/%d %H:%M:%S")
