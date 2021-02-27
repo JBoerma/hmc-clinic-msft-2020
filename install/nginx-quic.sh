@@ -22,7 +22,6 @@ sudo apt-get install -y \
   cmake \
   git \
   gnupg \
-  golang \
   libpcre3-dev \
   curl \
   zlib1g-dev \
@@ -30,7 +29,8 @@ sudo apt-get install -y \
   autoconf \
   libtool-bin \
   libnss3-tools \
-  mercurial
+  mercurial \
+  golang
   
 # make build root dir
 mkdir -p $BUILDROOT
@@ -42,15 +42,19 @@ echo '-----Downloading source-----'
 if ! command -v cargo &> /dev/null
 then
 	echo '----Installing Rust-----'
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	source $HOME/.cargo/env
 fi
 
-if ! command -v cargo &> /dev/null
+if ! command -v go1.15.8 &> /dev/null
 then
+    echo '----Installing Go 1.15.8-----'
     echo 'export GOPATH=$HOME/go' >> ~/.bashrc 
     echo 'export PATH=${PATH}:${GOPATH}/bin' >> ~/.bashrc 
-    source ~/.bashrc 
+    source ~/.bashrc
+    go get golang.org/dl/go1.15.8
+    source ~/.bashrc
+    go get go1.15.8
 fi
 
 # Build BoringSSL
@@ -95,17 +99,18 @@ sudo make install
 # Install server certificate
 cd "$BUILDROOT"
 git clone https://github.com/FiloSottile/mkcert && cd mkcert
-go build -ldflags "-X main.Version=$(git describe --tags)"
+go1.15.8 build -ldflags "-X main.Version=$(git describe --tags)"
 chmod +x mkcert
-./mkcert -install localhost
-./mkcert -key-file /usr/local/nginx-quic/conf/localhost-key.pem \
+go1.15.8 install
+mkcert -install localhost
+mkcert -key-file /usr/local/nginx-quic/conf/localhost-key.pem \
     -cert-file /usr/local/nginx-quic/conf/localhost.pem \
     localhost
 
 # Configure server
 echo '---------Configuring Server--------'
 
-sudo cp "$INSTALLDIR/nginx.conf" /usr/local/nginx-quic/conf/nginx.conf
+sudo cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx.conf
 
 # add payloads
 sudo cp -r "$INSTALLDIR/payloads/" /usr/local/nginx/
