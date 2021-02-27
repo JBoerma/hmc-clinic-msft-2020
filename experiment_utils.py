@@ -22,9 +22,9 @@ option_to_netemParam = {
     "4g-lte-advanced-lossy":(70, 1, 15000),
 }
 
-APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
-APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms"
-APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
+APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms loss {LOSS}%"
+APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms"
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
 def apply_condition(
