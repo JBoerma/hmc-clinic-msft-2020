@@ -3,8 +3,6 @@ import time
 import signal
 import csv
 import os
-import numpy
-import json
 import sys
 import subprocess
 
