@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py experiment.py [--device DEVICE] [--options OPTIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [options] [--payloads PAYLOADS] 
+    experiment.py [--device DEVICE] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -11,14 +11,14 @@ Arguments:
     --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
-    --sync BOOL               run the experiment synchronously [default: True]
+    --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
     --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb]
 
 Options:
     -h --help                 Show this screen 
     --disable_caching         Disables caching
-    --multi-server            Uses all four server ports
     --warmup                  Warms up connection
+    --async                   Run experiment asynchronously
 """
 
 import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
@@ -66,17 +66,6 @@ def post_experiment_cleanup(
 
 
 def main():   
-    # Fix the program and server processes to specific cores
-    def fix_process(process_name: str, cpu_core: str):
-        processes = subprocess.check_output(['pgrep', '-f', process_name]).strip().decode('utf-8').replace("'","")
-        for process in processes.split("\n"):
-            subprocess.check_output(['sudo','taskset', '-p', cpu_core, process]).strip().decode('utf-8').replace("'","")
-    fix_process("experiment.py", "01")
-    try: # try/except to deal with 
-        fix_process("nginx", "02")
-    except subprocess.CalledProcessError as e:
-        print(f"Nginx server processes not found. Failed command: {e}")
-
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
@@ -88,28 +77,28 @@ def main():
     disable_caching = args['--disable_caching']
     warmup_connection = args['--warmup']
     throughput = int(args["--throughput"])
+    ports = args['--ports']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
-    sync = args['--sync']
+    run_async = args['--async']
     payloads = args['--payloads'].split()
-
     # removes caching in nginx if necessary, starts up server
-    pre_experiment_setup(
-        disable_caching=disable_caching,
-        url            =url,
-    )
+    # pre_experiment_setup(
+    #    disable_caching=disable_caching,
+    #    url            =url,
+    # )
     
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
 
-    if sync == 'True':
+    if not run_async:
         run_sync_experiment(
             schema_version=  "0",
             experiment_id=   str(int(time.time())),
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    None, #[':443', ':444', ':445', ':446'],
+            server_ports=    ports,
             conditions=      conditions,
             browsers=        browsers,
             url=             url,
@@ -117,10 +106,8 @@ def main():
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            multi_server=    args['--multi-server'], # TODO - remove?  
             payloads =       payloads
         )
-    
     else:
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
             schema_version=  "0",
@@ -128,8 +115,8 @@ def main():
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    [':443', ':444', ':445', ':446'],
-            conditions=       conditions,
+            server_ports=    ports,
+            conditions=      conditions,
             browsers=        browsers,
             url=             url,
             runs=            runs,
@@ -141,9 +128,9 @@ def main():
 
         ))
 
-    post_experiment_cleanup(
-        disable_caching=disable_caching,
-    )
+    # post_experiment_cleanup(
+    #     disable_caching=disable_caching,
+    # )
         
     print("Finished!\n")
 
@@ -162,47 +149,35 @@ def run_sync_experiment(
     disable_caching: bool,
     warmup:          bool,
     database, 
-    multi_server:    bool,
     payloads:        List[str],
 ):
     with sync_playwright() as p:
             for condition in tqdm(conditions, desc="Experiments"):
-
                 experimentID = int(time.time()) # ensures no repeats
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
-                for payload in payloads:
-                    for browser in tqdm(browsers, f"Browsers for '{condition}'"):
-                        whenRunH3 = runs * [True] + runs * [False]
-                        random.shuffle(whenRunH3)
-                        perServer = runs // 4
-                        # Ensure all servers are represented the same amount in H2 vs. H3
-                        if runs < 4 or not multi_server:
-                            whichServer = [':443'] * (runs * 2)
-                        else:
-                            servers1 = [':443', ':444', ':445', ':446'] * perServer
-                            servers2 = [':443', ':444', ':445', ':446'] * perServer
-                            random.shuffle(servers1)
-                            random.shuffle(servers2)
-                            whichServer = servers1 + servers2
-                        # run the same experiment multiple times over h3/h2
-                        for useH3 in tqdm(whenRunH3, desc=f"Runs for {browser}"):
-                            # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
-                            results = do_single_experiment_sync(condition, device, p, browser, useH3, url, '', payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
-                            results["experimentID"] = experimentID 
-                            results["httpVersion"] = "h3" if useH3 else "h2" 
-                            results["warmup"] = warmup
-                            results["browser"] = browser 
-                            results["payloadSize"] = payload 
-                            results["netemParams"] = condition
-                            # TODO: currently missing server, add server
-                            write_timing_data(results, database)
-                            httpVersion = "HTTP/3" if useH3 else "HTTP/2"
-                            # Print info from latest run and then go back lines to prevent broken progress bars
-                            tqdm.write(f"\033[F\033[K{browser}: {results['server']} ({httpVersion})       ")
-                        print("", end="\033[F\033[K")
-                    print("", end="\033[F\033[K")
-                print("", end="\033[F\033[K")
+                whenRunH3 = [(h3, port, payload, browser) 
+                                for browser in browsers 
+                                for payload in payloads 
+                                for port in server_ports * runs 
+                                for h3 in [True, False]
+                            ]
+                random.shuffle(whenRunH3)
+                # run the same experiment multiple times over h3/h2
+                for (useH3, whichServer, payload, browser) in tqdm(whenRunH3):
+                    # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
+                    results["experimentID"] = experimentID 
+                    results["httpVersion"] = "h3" if useH3 else "h2" 
+                    results["warmup"] = warmup
+                    results["browser"] = browser 
+                    results["payloadSize"] = payload 
+                    results["netemParams"] = condition
+                    # TODO: currently missing server, add server
+                    write_timing_data(results, database)
+                    httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+                    # Print info from latest run and then go back lines to prevent broken progress bars
+                    tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
 
 
 async def run_async_experiment(

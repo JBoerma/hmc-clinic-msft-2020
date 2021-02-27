@@ -105,9 +105,10 @@ async def get_results_async(
 
         performance_timing = json.loads(timing_response)
         performance_timing['server'] = response.headers['server']
-    except:
+    except Exception as e:
+        print(str(e))
         performance_timing = {timing : -1 for timing in timing_parameters}
-        performance_timing['server'] = "Error"
+        performance_timing['server'] = str(e)
     # close context, allowing next call to use same browser
     await context.close()
 

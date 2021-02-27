@@ -1,5 +1,6 @@
 import subprocess, json, csv, os
 from sqlite3 import Connection, connect
+from tqdm import tqdm
 
 option_to_netemParam = {
     # network condition   (latency, packetloss, bandwidth(download speed))
@@ -21,6 +22,7 @@ option_to_netemParam = {
 }
 
 APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
+APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms"
 APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
@@ -33,13 +35,16 @@ def apply_condition(
     # handeling tc errors
     if commandStatus == 1: # this means that we had some trouble running tc!
         reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
-        print("reseting condition")
+        tqdm.write("reseting condition")
         retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
         if retry_command_status == 0:
-            print("resetted tc command!")
+            tqdm.write("resetted tc command!")
         else:
-            print("RESET FAILED")
-    run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
+            tqdm.write("RESET FAILED")
+    if loss == 0:
+        run_tc_command(APPLY_LATENCY.format(DEVICE = device, LATENCY = latency))
+    else:
+        run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
 
 
 def reset_condition(
@@ -51,13 +56,13 @@ def run_tc_command(
     command: str,
 ):
     if command:
-        print("commands are", command)
+        tqdm.write(f"commands are {command}")
         result = subprocess.run(command.split())
         if result.returncode > 0:
-            print("Issue running TC!")
-            print(result.args)
-            print(result.stderr)
-            print("--------------------------")
+            tqdm.write("Issue running TC!")
+            tqdm.write(str(result.args))
+            tqdm.write(str(result.stderr))
+            tqdm.write("--------------------------")
             return 1 # failed
         return 0 #success
 
@@ -142,6 +147,11 @@ def setup_data_file_headers(
 ):
     if os.path.exists(out):
         return connect(out)
+    
+    # If directory doesn't exist, can't connect
+    # Don't check disk for in-memory database
+    if out != ":memory:":
+        os.mkdir(os.path.dirname(out))
 
     # only if database doesn't exist 
     big_table = ""
