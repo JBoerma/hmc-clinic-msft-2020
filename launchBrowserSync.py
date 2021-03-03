@@ -1,4 +1,5 @@
 import json
+import sys
 from typing import List
 from tqdm import tqdm
 import re, os, time, glob
@@ -183,6 +184,7 @@ def get_results_sync(
         performance_timing['server'] = response.headers['server']
     except Exception as e:
         tqdm.write(str(e))
+        sys.exit() ## TODO - remove - this is for debugging
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(page.evaluate(timing_function))
         performance_timing['server'] = str(e)
