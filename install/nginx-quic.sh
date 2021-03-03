@@ -29,7 +29,8 @@ sudo apt-get install -y \
   autoconf \
   libtool-bin \
   libnss3-tools \
-  mercurial
+  mercurial \
+  golang
   
 # make build root dir
 mkdir -p $BUILDROOT
@@ -41,7 +42,7 @@ echo '-----Downloading source-----'
 if ! command -v cargo &> /dev/null
 then
 	echo '----Installing Rust-----'
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -y
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	source $HOME/.cargo/env
 fi
 
@@ -53,6 +54,7 @@ then
     source ~/.bashrc
     go get golang.org/dl/go1.15.8
     source ~/.bashrc
+    go get go1.15.8
 fi
 
 # Build BoringSSL

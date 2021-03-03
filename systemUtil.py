@@ -2,9 +2,11 @@ import psutil
 import time 
 import signal
 import csv
-from getTime import getTime
 import os
-import numpy
+import sys
+import subprocess
+
+from experiment_utils import write_monitoring_data, get_time, write_processes_data
 
 systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
@@ -17,7 +19,7 @@ def writeData(data, csvFileName: str):
     print("wrote to {}".format(csvFileName))
 
 
-def getDataFromKernal():
+def getDataFromKernel():
     procs = os.listdir('/proc')
     procsCPU = []
     ioWait = []
@@ -30,7 +32,7 @@ def getDataFromKernal():
                     data = f.read()
                 stat = data.split()
                 # find the process corresponding to the browser instances
-                if stat[1] == '(firefox)' or stat[1] == '(chromium)' or stat[1] == '(edge)':
+                if str(stat[1]) in ['(firefox)', '(chrome)', '(msedge)']:
                     # add the CPU time to the list
                     procsCPU.append(int(stat[13])/hz)
                     # procsMemory.append(stat[22])
@@ -57,36 +59,40 @@ class GracefulKiller:
     def exit_gracefully(self, signum, frame):
         self.kill_now = True
 
+def collectProcessesData():
+    ps = subprocess.check_output(['ps', 'aux']).strip().decode('utf-8').replace("'","")
+    processes = ps.split('\n')
+    nfields = len(processes[0].split()) - 1
+    data = []
+    for row in processes[1:]:
+        data.append(tuple([int(time.time())] + row.split(None, nfields)))
+    return data
+        
 # general system information
 if __name__ == "__main__":
-    
+    experimentID = sys.argv[1]
     killer = GracefulKiller()
-    currentCPUusage = []
-    currentTime = []
-    currentIOwait = []
-    currentProcNames = []
-    currentUnixTime = []
+    # currentcpuTime = []
+    # currentTime = []
+    # currentIOwait = []
+    # currentProcNames = []
+    # currentUnixTime = []
+    # currentLoad1 = []
+    # currentLoad5 = []
+    # currentLoad15 = []
     with open('/proc/stat', 'r') as f:
         data = f.read()
     # Time waiting for I/O to complete
     lastReading = data.split()[4]
-
+    # Write processdata
+    process_data = collectProcessesData()
+    for row in process_data:
+        write_processes_data(row)
     while not killer.kill_now:
         time.sleep(1)
-        procsList, procsCPU, ioWait = getDataFromKernal()
-        for i in range(len(procsList)):
-            currentTime.append(getTime())
-            currentUnixTime.append(int(time.time()))
-        currentCPUusage+=procsCPU
-        currentIOwait += ioWait
-        currentProcNames+=procsList
-        print("ideally appending into an array")
-    # compute the differences of iotimes
-    # TODO: this will be an issue when we parallize browsers, because 
-    # iotime manually matches the processes column. So if we have multiple
-    # processes at a time, our iowait will be [actual iowait, 0, 0, ...] 
-    currentIOwait = numpy.array(currentIOwait, dtype=numpy.uint8)
-    currentIOwaitDiff = numpy.diff(currentIOwait)
-    zipall = zip(currentTime, currentUnixTime, currentProcNames, currentCPUusage, currentIOwait)
-    writeData(zipall, systemUtilLog)
-    print("ideally writing to csv file")
+        # get a lists of browsers processes and the coresponding cpu and iowait
+        procsList, procsCPU, ioWait = getDataFromKernel()
+        load1, load5, load15 = os.getloadavg()
+        row_tuple = (experimentID, get_time(),int(time.time()),str(procsList), \
+            str(procsCPU), str(ioWait), load1, load5, load15) # need to turn lsits into strs
+        write_monitoring_data(row_tuple)

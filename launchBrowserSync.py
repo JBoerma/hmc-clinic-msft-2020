@@ -1,6 +1,9 @@
 import json
 from typing import List
+from tqdm import tqdm
 import playwright
+import re
+
 from experiment_utils import reset_condition, apply_condition
 
 def do_single_experiment_sync(
@@ -129,7 +132,9 @@ def get_results_sync(
 ) -> json:
     context = browser.new_context()
     page = context.new_page()
-    if url == "https://localhost":
+    tqdm.write( f"sync 131 {payload}")
+    regex = re.compile(r"\.\D+")
+    if not regex.findall(url):
         url = url + port + "/" + payload + ".html"
     warmup_if_specified_sync(page, url, warmup)
     try:
@@ -153,10 +158,10 @@ def get_results_sync(
         performance_timing['error'] = "timeOut"
         performance_timing['server'] = "N/A"
     except:
-        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-        performance_timing = json.loads(page.evaluate(timing_function))
-        performance_timing['error'] = "other"
-        performance_timing['server'] = "N/A"
+        performance_timing = {
+            'error': "other",
+            'server': "N/A",
+        }
     return performance_timing
 
 
