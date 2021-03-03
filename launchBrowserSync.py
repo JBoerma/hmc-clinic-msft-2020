@@ -62,10 +62,14 @@ def launch_firefox_sync(
         else:
             firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
 
-    browser = pw_instance.firefox.launch(
-        headless=True,
-        firefox_user_prefs=firefox_prefs,
-    )
+    try:
+        browser = pw_instance.firefox.launch(
+            headless=True,
+            firefox_user_prefs=firefox_prefs,
+        )
+    except:
+        tqdm.write( f"browser failed to launch")
+        return {'error': 'browser_failed'}
     return get_results_sync(browser, url, h3, port, payload, warmup)
 
 
@@ -88,10 +92,8 @@ def launch_chromium_sync(
             args=chromium_args,
         )
     except:
-        browser =  pw_instance.chromium.launch(
-            headless=True,
-            args=chromium_args,
-        )
+        tqdm.write( f"browser failed to launch")
+        return {'error': 'browser_failed'}
     return get_results_sync(browser, url, h3, port, payload, warmup)
 
 
@@ -114,11 +116,8 @@ def launch_edge_sync(
             args=edge_args,
         )
     except:
-        browser = pw_instance.chromium.launch(
-            headless=True,
-            executable_path='/opt/microsoft/msedge-dev/msedge',
-            args=edge_args,
-        )
+        tqdm.write( f"browser failed to launch")
+        return {'error': 'browser_failed'}
     return get_results_sync(browser, url, h3, port, payload, warmup)
     
 
