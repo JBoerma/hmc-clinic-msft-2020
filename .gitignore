@@ -6,8 +6,17 @@
 
 # python
 *pycache*
+*Python*
 
 # results and data analysis
 *.png
 results
 graph
+
+# build files
+*.gz
+*.deb
+*.tgz
+
+# should we ignore caddy?
+caddy
