@@ -1,7 +1,7 @@
 import json
 from typing import List
 from tqdm import tqdm
-import re
+import re, os, subprocess
 
 from experiment_utils import reset_condition, apply_condition
 
@@ -15,9 +15,11 @@ def do_single_experiment_sync(
     port: str,
     payload: str,
     warmup: bool,
+    log: bool,
+    expnt_id: int,
 ) -> json:
     apply_condition(device, condition)
-    results = launch_browser_sync(pw_instance, browser_type, url, h3, port, payload, warmup=warmup)
+    results = launch_browser_sync(pw_instance, browser_type, url, h3, port, payload, warmup, log, expnt_id)
     reset_condition(device)
 
     return results
@@ -31,13 +33,15 @@ def launch_browser_sync(
     port: str,
     payload: str,
     warmup: bool,
+    log: bool,
+    expnt_id: int
 ) -> json:
     if browser_type  ==  "firefox":
-        return launch_firefox_sync(pw_instance, url, h3, port, payload, warmup)
+        return launch_firefox_sync(pw_instance, url, h3, port, payload, warmup, log)
     elif browser_type  ==  "chromium":
-        return launch_chromium_sync(pw_instance, url, h3, port, payload, warmup)
+        return launch_chromium_sync(pw_instance, url, h3, port, payload, warmup, log, expnt_id)
     elif browser_type  ==  "edge":
-        return launch_edge_sync(pw_instance, url, h3, port, payload, warmup)
+        return launch_edge_sync(pw_instance, url, h3, port, payload, warmup, log, expnt_id)
 
 
 def launch_firefox_sync(
@@ -47,11 +51,14 @@ def launch_firefox_sync(
     port: str,
     payload: str,
     warmup: bool,
+    log: bool,
 ) -> json:
     firefox_prefs = {}
     firefox_prefs["privacy.reduceTimerPrecision"] = False
     
     if h3:
+        if log:
+            firefox_prefs["network.http.http3.enable_qlog"] = True
         domain = url if "https://" not in url else url[8:]
         firefox_prefs["network.http.http3.enabled"] = True
         if '446' in port:
@@ -63,7 +70,10 @@ def launch_firefox_sync(
         headless=True,
         firefox_user_prefs=firefox_prefs,
     )
-    return get_results_sync(browser, url, h3, port, payload, warmup)
+    results = get_results_sync(browser, url, h3, port, payload, warmup)
+    if h3 and log:
+        subprocess.run( (f"find /tmp/ -maxdepth 1 -type d -name 'qlog_*' -exec  mv '{{}}' {os.getcwd()}/results/logs/firefox/ "+r"\;").split())
+    return results
 
 
 def launch_chromium_sync(
@@ -73,11 +83,15 @@ def launch_chromium_sync(
     port: str,
     payload: str,
     warmup: bool,
+    log: bool,
+    expnt_id: int,
 ) -> json:
     chromium_args = []
     if (h3):
         domain = url if "https://" not in url else url[8:]
         chromium_args = ["--enable-quic", f"--origin-to-force-quic-on={domain}:443", "--quic-version=h3-29"]
+        if log:
+            chromium_args.append(f"--log-net-log={os.getcwd()}/results/logs/chromium/{expnt_id}.json")
 
     try:
         browser =  pw_instance.chromium.launch(
@@ -99,11 +113,15 @@ def launch_edge_sync(
     port: str,
     payload: str,
     warmup: bool,
+    log: bool,
+    expnt_id: int,
 ) -> json:
     edge_args = []
     if (h3) :
         domain = url if "https://" not in url else url[8:]
         edge_args = ["--enable-quic", f"--origin-to-force-quic-on={domain}:443", "--quic-version=h3-29"]
+        if log:
+            edge_args.append(f"--log-net-log={os.getcwd()}/results/logs/edge/{expnt_id}.json")
     try:
         browser = pw_instance.chromium.launch(
             headless=True,

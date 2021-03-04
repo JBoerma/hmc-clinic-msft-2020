@@ -19,6 +19,7 @@ Options:
     --disable_caching         Disables caching
     --warmup                  Warms up connection
     --async                   Run experiment asynchronously
+    --log                     Turns on QLog logging
 """
 
 import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
@@ -83,6 +84,7 @@ def main():
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     run_async = args['--async']
     payloads = args['--payloads'].split()
+    log = args['--log']
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
     #    disable_caching=disable_caching,
@@ -108,7 +110,8 @@ def main():
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads =       payloads
+            payloads =       payloads,
+            log=             log 
         )
     else:
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
@@ -150,6 +153,7 @@ def run_sync_experiment(
     runs:            int, 
     disable_caching: bool,
     warmup:          bool,
+    log:             bool,
     database, 
     payloads:        List[str],
 ):
@@ -169,9 +173,8 @@ def run_sync_experiment(
                 random.shuffle(whenRunH3)
                 # run the same experiment multiple times over h3/h2
                 for (useH3, whichServer, payload, browser) in tqdm(whenRunH3):
-                    # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
-                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
-                    results["experimentID"] = experimentID 
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup, log, experiment_id)
+                    results["experimentID"] = experiment_id
                     results["httpVersion"] = "h3" if useH3 else "h2" 
                     results["warmup"] = warmup
                     results["browser"] = browser 
