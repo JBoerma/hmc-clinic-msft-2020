@@ -74,17 +74,20 @@ def launch_firefox_sync(
         else:
             firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
 
-    browser = pw_instance.firefox.launch(
-        headless=True,
-        firefox_user_prefs=firefox_prefs,
-    )
-    results = get_results_sync(browser, url, h3, port, payload, warmup)
-    if h3 and qlog:
-        if not os.path.exists(f"{qlog_path}/{expnt_id}"):
-            os.mkdir(f"{qlog_path}/{expnt_id}")
-        for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
-            os.rename(qlog, f"{qlog_path}/{expnt_id}/{time.time()}.qlog")
-    return results
+    try:
+        browser = pw_instance.firefox.launch(
+            headless=True,
+            firefox_user_prefs=firefox_prefs,
+        )
+        results = get_results_sync(browser, url, h3, port, payload, warmup)
+        if h3 and qlog:
+            if not os.path.exists(f"{qlog_path}/{expnt_id}"):
+                os.mkdir(f"{qlog_path}/{expnt_id}")
+            for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
+                os.rename(qlog, f"{qlog_path}/{expnt_id}/{time.time()}.qlog")
+        return results
+    except:
+        return {"error": "launch_browser_failed"}
 
 
 def launch_chromium_sync(
@@ -115,10 +118,13 @@ def launch_chromium_sync(
             args=chromium_args,
         )
     except:
+        """
         browser =  pw_instance.chromium.launch(
             headless=True,
             args=chromium_args,
         )
+        """
+        return {"error":"launch_browser_failed"}
     return get_results_sync(browser, url, h3, port, payload, warmup)
 
 
@@ -150,11 +156,14 @@ def launch_edge_sync(
             args=edge_args,
         )
     except:
+        """
         browser = pw_instance.chromium.launch(
             headless=True,
             executable_path='/opt/microsoft/msedge-dev/msedge',
             args=edge_args,
         )
+        """
+        return {"error":"launch_browser_failed"}
     return get_results_sync(browser, url, h3, port, payload, warmup)
     
 
@@ -184,10 +193,10 @@ def get_results_sync(
         performance_timing['server'] = response.headers['server']
     except Exception as e:
         tqdm.write(str(e))
-        sys.exit() ## TODO - remove - this is for debugging
-        timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
-        performance_timing = json.loads(page.evaluate(timing_function))
-        performance_timing['server'] = str(e)
+        #sys.exit() ## TODO - remove - this is for debugging
+        #timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
+        #performance_timing = json.loads(page.evaluate(timing_function))
+        performance_timing = {'error': str(e)}
         pass
 
     

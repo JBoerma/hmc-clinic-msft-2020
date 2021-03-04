@@ -12,7 +12,7 @@ Arguments:
     --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb]
+    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
 
 Options:
     -h --help                 Show this screen 
