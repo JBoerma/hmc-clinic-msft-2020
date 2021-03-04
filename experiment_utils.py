@@ -148,6 +148,7 @@ timings_fmt = {
     "domComplete" : "Float", 
     "loadEventStart" : "Float",
     "loadEventEnd" : "Float",
+    "error" : "TEXT",
 }
 
 processes_fmt = {
@@ -220,7 +221,7 @@ def write_big_table_data(data: json, db: Connection):
 
 def write_timing_data(data: json, db: Connection):
     insert = f"INSERT INTO timings VALUES ({ ('?,' * len(timings_fmt))[:-1]})"
-    data_tuple = tuple([data[key] for key in timings_fmt.keys()])
+    data_tuple = tuple([data[key] if key in data else "" for key in timings_fmt.keys()])
     db.execute(insert, data_tuple)
     db.commit()
 
