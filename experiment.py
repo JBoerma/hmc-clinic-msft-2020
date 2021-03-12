@@ -184,8 +184,11 @@ def run_sync_experiment(
                     write_timing_data(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
                     # Print info from latest run and then go back lines to prevent broken progress bars
-                    tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
-
+                    # if the request fails, we will print out the message in the console
+                    if 'server' in results.keys():
+                        tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
+                    else:
+                        tqdm.write(f"{browser}: {'error'}({httpVersion})")
                 try:
                     util_process.wait(timeout=3)
                 except subprocess.TimeoutExpired:

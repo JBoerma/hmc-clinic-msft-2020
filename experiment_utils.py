@@ -178,7 +178,7 @@ def setup_data_file_headers(
     # If directory doesn't exist, can't connect
     # Don't check disk for in-memory database
     if out != ":memory:":
-        os.mkdir(os.path.dirname(out))
+        os.makedirs(os.path.dirname(out),exist_ok = True)
 
     # only if database doesn't exist 
     big_table = ""

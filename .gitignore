@@ -17,6 +17,7 @@ graph
 *.gz
 *.deb
 *.tgz
+*.save
 
 # should we ignore caddy?
 caddy
