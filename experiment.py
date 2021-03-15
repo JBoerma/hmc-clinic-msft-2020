@@ -164,6 +164,10 @@ def run_sync_experiment(
                 start_server_monitoring(experimentID, str(out))
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
+
+                # server monitoring 
+                start_server_monitoring(exp_id=experiment_id)
+
                 whenRunH3 = [(h3, port, payload, browser) 
                                 for browser in browsers 
                                 for payload in payloads 
