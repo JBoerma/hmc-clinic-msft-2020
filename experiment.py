@@ -22,23 +22,20 @@ Options:
     --qlog                    Turns on QLog logging
 """
 
-import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
+import os, time, random, subprocess, csv, psutil, json, sqlite3, asyncio, itertools
 from typing import List, Dict, Tuple
+import cache_control
 from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from docopt import docopt
-import random
-from uuid import uuid4
 from tqdm import tqdm
 from sqlite3 import Connection
-import psutil
 
 # separating our own imports
-import systemUtil
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
-
+from ssh_utils import start_server_monitoring
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -163,7 +160,8 @@ def run_sync_experiment(
             for condition in tqdm(conditions, desc="Experiments"):
                 experimentID = int(time.time()) # ensures no repeats
                 # Start system monitoring
-                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID), str(out)])
+                client_util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID), 'client', str(out)])
+                start_server_monitoring(experimentID, str(out))
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
                 whenRunH3 = [(h3, port, payload, browser) 
@@ -192,10 +190,10 @@ def run_sync_experiment(
                     else:
                         tqdm.write(f"{browser}: {'error'}({httpVersion})")
                 try:
-                    util_process.wait(timeout=3)
+                    client_util_process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
                     # Cleaning up system monitoring subprocess
-                    proc_pid = util_process.pid
+                    proc_pid = client_util_process.pid
                     process = psutil.Process(proc_pid)
                     for proc in process.children(recursive=True):
                         proc.kill()

@@ -7,7 +7,7 @@ SERVER_IP = "20.64.240.88"
 CMD_CD_ROOT = "cd /hmc-clinic-msft-2020"
 
 # thanks to https://stackoverflow.com/questions/3586106/perform-commands-over-ssh-with-python/57439663#57439663
-def start_server_monitoring(exp_id: str):
+def start_server_monitoring(exp_id: str, out: str):
     key = paramiko.RSAKey.from_private_key_file(SERVER_KEY)
     while True: 
         try: 
@@ -25,7 +25,7 @@ def start_server_monitoring(exp_id: str):
                     
 
     ## TODO - Test
-    cmd_start_monitor = f"python3 system_monitoring.py --exp_id {exp_id}"
+    cmd_start_monitor = f"python3 system_monitoring.py {exp_id} server {out}"
 
     commands = [CMD_CD_ROOT, cmd_start_monitor]
     print("Sending Commands to Server")
