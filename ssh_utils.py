@@ -11,13 +11,19 @@ def execute_cmd_blocking(ssh: "SSHClient", cmd: str):
     print(f"\t>\t{cmd}")
     _, stdout, stderr = ssh.exec_command(cmd)
     dat = ""
-    while not stderr.channel.exit_status_ready():
+    dat_err = ""
+    while not stderr.channel.exit_status_ready() or not stdout.channel.exit_status_ready():
         if stdout.channel.recv_ready():
-            dat = dat + stdout.channel.recv(1024)
+            dat = dat + str(stdout.channel.recv(1024))
+        if stderr.channel.recv_ready():
+            dat_err = dat + str(stderr.channel.recv(1024))
     
     lines = dat.splitlines()
-    for line in lines: 
-        print(f"\t{line}")
+    lines_err = dat_err.splitlines()
+    for line in lines:
+        print(f"\t\t{line}")
+    for line in lines_err:
+        print(f"\t\t{line}")
 
 
 def execute_cmd(ssh: "SSHClient", cmd: str):
@@ -49,14 +55,16 @@ def start_server_monitoring(exp_id: str, out: str) -> "SSHClient":
             sys.exit(1)
     
     print("Successful Connection: Running Commands")
-    execute_cmd_blocking(ssh, CMD_CD_ROOT)
-    execute_cmd_blocking(ssh, "cd install")
-    execute_cmd_blocking(ssh, "./restart-all.sh")
-    execute_cmd_blocking(ssh, "cd ..")
+    commands = [
+        CMD_CD_ROOT,
+        "cd install",
+        "./restart-all.sh",
+    ]
+    execute_cmd_blocking(ssh, " && ".join(commands))
 
     ## TODO - Test
     cmd_start_monitor = f"python3 system_monitoring.py {exp_id} server {out}"
-    execute_cmd(ssh, cmd_start_monitor)
+    execute_cmd(ssh, " && ".join([CMD_CD_ROOT, cmd_start_monitor]))
     print("successfully ran systemUtil on server")
     return ssh
 
