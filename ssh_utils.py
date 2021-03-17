@@ -4,7 +4,7 @@ import paramiko
 SERVER_KEY = "MSFT_Clinic_Key.pem"
 SERVER_IP = "20.64.240.88"  
 
-CMD_CD_ROOT = "cd /hmc-clinic-msft-2020"
+CMD_CD_ROOT = "cd ~/hmc-clinic-msft-2020"
 
 
 def execute_cmd_blocking(ssh: "SSHClient", cmd: str): 
