@@ -20,23 +20,35 @@ def execute_cmd_blocking(ssh: "SSHClient", cmd: str):
         print(f"\t{line}")
 
 
+def execute_cmd(ssh: "SSHClient", cmd: str):
+    print(f"\t>\t{cmd}")
+    _, stdout, stderr = ssh.exec_command(cmd)
+
+
 # thanks to https://stackoverflow.com/questions/3586106/perform-commands-over-ssh-with-python/57439663#57439663
 def start_server_monitoring(exp_id: str, out: str) -> "SSHClient":
     key = paramiko.RSAKey.from_private_key_file(SERVER_KEY)
     while True: 
+        print("Trying to connect to server...")
         try: 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(SERVER_IP, username="clinic", pkey=key)
+            ssh.connect(SERVER_IP, username="clinic", pkey=key, banner_timeout=200)
+            break
         except paramiko.AuthenticationException as e:
-            print("Auth failed when connection to Server:")
+            print("Auth failed when connecting to Server:")
             print(e)
-            return # Default is to silently fail
+            print("Trying again")
+        except paramiko.ssh_exception.SSHException as e: 
+            print("Encountered exception:")
+            print(e) 
+            print("Trying again...")
         except Exception as e: 
             print("Unexpected exception")
             print(e)
             sys.exit(1)
-                    
+    
+    print("Successful Connection: Running Commands")
     execute_cmd_blocking(ssh, CMD_CD_ROOT)
     execute_cmd_blocking(ssh, "cd install")
     execute_cmd_blocking(ssh, "./restart-all.sh")
@@ -44,8 +56,8 @@ def start_server_monitoring(exp_id: str, out: str) -> "SSHClient":
 
     ## TODO - Test
     cmd_start_monitor = f"python3 system_monitoring.py {exp_id} server {out}"
-    ssh.exec_command(cmd_start_monitor)
-
+    execute_cmd(ssh, cmd_start_monitor)
+    print("successfully ran systemUtil on server")
     return ssh
 
 
