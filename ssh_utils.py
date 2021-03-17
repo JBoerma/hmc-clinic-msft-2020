@@ -38,6 +38,9 @@ def start_server_monitoring(exp_id: str, out: str) -> "SSHClient":
             sys.exit(1)
                     
     execute_cmd_blocking(ssh, CMD_CD_ROOT)
+    execute_cmd_blocking(ssh, "cd install")
+    execute_cmd_blocking(ssh, "./restart-all.sh")
+    execute_cmd_blocking(ssh, "cd ..")
 
     ## TODO - Test
     cmd_start_monitor = f"python3 system_monitoring.py {exp_id} server {out}"
