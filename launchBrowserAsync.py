@@ -1,6 +1,9 @@
 import json, time
 
 
+import logging
+logger = logging.getLogger()
+
 async def launch_browser_async(
     pw_instance, 
     browser_type: str,
@@ -105,8 +108,8 @@ async def get_results_async(
         performance_timing = json.loads(timing_response)
         performance_timing['server'] = response.headers['server']
     except Exception as e:
-        print(str(e))
-        performance_timing['server'] = str(e)
+        logger.error(str(e))
+        performance_timing = {} # TODO fix
     # close context, allowing next call to use same browser
     await context.close()
 
