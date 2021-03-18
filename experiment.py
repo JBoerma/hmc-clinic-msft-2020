@@ -64,7 +64,8 @@ consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.INFO)
 consoleHandler.setFormatter(formatter)
 # file hanlder logs DEBUG, INFO, and above to file
-fileHandler = logging.FileHandler(f"{time.time()}.log")
+log_file = f"{time.time()}.log"
+fileHandler = logging.FileHandler(log_file)
 fileHandler.setLevel(logging.DEBUG)
 fileHandler.setFormatter(formatter)
 # add handlers to logger
@@ -170,7 +171,7 @@ def main():
     #     disable_caching=disable_caching,
     # )
         
-    logger.info("Finished!")
+    logger.info(f"Finished! View logs at {log_file}")
 
 
 def run_sync_experiment(
