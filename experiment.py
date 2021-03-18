@@ -22,7 +22,8 @@ Options:
     --qlog                    Turns on QLog logging
 """
 
-import os, time, random, subprocess, csv, psutil, json, sqlite3, asyncio, itertools
+import sys, os, time, random, subprocess, json, sqlite3, asyncio, itertools
+import cache_control
 from typing import List, Dict, Tuple
 import cache_control
 from playwright.sync_api import sync_playwright
@@ -30,6 +31,8 @@ from playwright.async_api import async_playwright
 from docopt import docopt
 from tqdm import tqdm
 from sqlite3 import Connection
+import psutil
+import signal
 
 # separating our own imports
 from launchBrowserAsync import launch_browser_async, get_results_async
@@ -101,10 +104,26 @@ def post_experiment_cleanup(
         cache_control.add_server_caching("/usr/local/nginx/conf/nginx.conf", 23, 9)
 
 
+# Reset TC Params on exit
+class ResetTCOnExit:
+    def __init__(self, dev: str):
+        self.dev = dev
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self, signum, frame):
+        reset_condition(self.dev)
+        # TODO after logging PR is in, replace with log
+        print(f"Exiting Program due to SIGNUM {signum}", flush=True)
+        sys.exit()
+
+
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
+    killer = ResetTCOnExit(device)
+
     conditions = args['--conditions']
     browsers = args['--browsers']
     url = args['--url']
