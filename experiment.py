@@ -37,11 +37,27 @@ from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
 from ssh_utils import start_server_monitoring, end_server_monitoring, on_server
 
+# Thanks to https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)
+            self.flush()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)  
+
+
 # set up logging, log file...
 import logging
 logger = logging.getLogger()
 # console handler logs WARNING, ERROR, and CRITICAL to console
-consoleHandler = logging.StreamHandler()
+consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.WARNING)
 # file hanlder logs DEBUG, INFO, and above to file
 fileHandler = logging.FileHandler(f"{time.time()}".log)
