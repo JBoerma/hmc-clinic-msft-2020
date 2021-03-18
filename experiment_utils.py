@@ -4,7 +4,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 """
-a dictionary that maps network condition in string to a tuple of tc parameters
+A dictionary that maps network condition in string to a tuple of tc parameters
 realistic parameters are obtained here:
 https://www.browserstack.com/docs/automate/selenium/simulate-network-conditions
 """

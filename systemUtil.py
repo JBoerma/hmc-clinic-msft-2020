@@ -8,48 +8,53 @@ import subprocess
 
 from experiment_utils import write_monitoring_data, get_time, write_processes_data
 
-systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
 
-def writeData(data, csvFileName: str):
-    with open(csvFileName, 'a+', newline='\n') as outFile:
-        csvWriter = csv.writer(outFile)
-        for row in data:
-            csvWriter.writerow(row)
-    print("wrote to {}".format(csvFileName))
-
-
-def getDataFromKernel():
+"""
+Return data about browser processes (the client) in two lists and a float
+broswers_names: a list of the names of the processes (browser type: firefox, edge, chromium)
+broswers_cpu_times: a list of the corresponding CPU time
+broswers_iowait: the current iowait
+"""
+def get_broswer_util_data():
     procs = os.listdir('/proc')
-    procsCPU = []
-    ioWait = []
-    procsList = []
-    # iterate through all the running process
+    broswers_cpu_times = []
+    broswers_names = []
+    # iterate through all the running process with numeric pid
     for proc in procs:
         if proc.isnumeric():
             try:
+                # get the status information about the process
+                # https://man7.org/linux/man-pages/man5/procfs.5.html 
                 with open('/proc/'+proc+'/stat', 'r') as f:
                     data = f.read()
                 stat = data.split()
                 # find the process corresponding to the browser instances
+                # proc/[pid]/stat[1]:comm is the filename of the executable 
                 if str(stat[1]) in ['(firefox)', '(chrome)', '(msedge)']:
                     # add the CPU time to the list
-                    procsCPU.append(int(stat[13])/hz)
-                    # procsMemory.append(stat[22])
-                    procsList.append(stat[1][1:-1])
+                    # proc/[pid]/stat[13]:utime is the amount of time that this process has been scheduled
+                    # in user mode, measured in clock ticks 
+                    broswers_cpu_times.append(int(stat[13])/hz)
+                    # add the name of the process (browser instance) to the list
+                    broswers_names.append(stat[1][1:-1])
+            # sometimes right after we obtain the pid, the process ends, then we will ignore the process
             except FileNotFoundError:
                 pass
     with open('/proc/stat', 'r') as f:
         data = f.read()
-        for _ in range(len(procsList)):
-            # Time waiting for I/O to complete
-            currentReading = data.split()[4]
-            ioWait.append(currentReading)
-    return procsList, procsCPU, ioWait
+        # proc/stat[4]: iowait is the time  a task waits for I/O to complete
+        # this number is not reliable, detailed see https://man7.org/linux/man-pages/man5/procfs.5.html
+        iowait = data.split()[4]
+    return broswers_names, broswers_cpu_times, iowait
 
 
-
-# https://stackoverflow.com/questions/18499497/how-to-process-sigterm-signal-gracefully
+"""
+In experiment.py run_sync_experiment, we will start a process running systemUtil.py
+to start monitoring the system, and we will also kill the process running systemUtil.py.
+This class is crucial to process SIGERM signal gracefully. Reference:
+https://stackoverflow.com/questions/18499497/how-to-process-sigterm-signal-gracefully
+"""
 class GracefulKiller:
     kill_now = False
     def __init__(self):
@@ -59,7 +64,11 @@ class GracefulKiller:
     def exit_gracefully(self, signum, frame):
         self.kill_now = True
 
-def collectProcessesData():
+"""
+Return data of all running processes, collected from the command `ps aux`
+as a list of tuples of information about processes
+"""
+def get_all_processes_data():
     ps = subprocess.check_output(['ps', 'aux']).strip().decode('utf-8').replace("'","")
     processes = ps.split('\n')
     nfields = len(processes[0].split()) - 1
@@ -68,32 +77,23 @@ def collectProcessesData():
         data.append(tuple([int(time.time())] + row.split(None, nfields)))
     return data
         
-# general system information
+
 if __name__ == "__main__":
+    # getting experimentID and database name from the arguments
     experimentID = sys.argv[1]
     output_database_name = sys.argv[2]
     killer = GracefulKiller()
-    # currentcpuTime = []
-    # currentTime = []
-    # currentIOwait = []
-    # currentProcNames = []
-    # currentUnixTime = []
-    # currentLoad1 = []
-    # currentLoad5 = []
-    # currentLoad15 = []
-    with open('/proc/stat', 'r') as f:
-        data = f.read()
-    # Time waiting for I/O to complete
-    lastReading = data.split()[4]
-    # Write processdata
-    process_data = collectProcessesData()
+    # Write processdata to the database TODO how often should we write process data to the database?
+    process_data = get_all_processes_data()
     for row in process_data:
         write_processes_data(row, output_database_name)
+    # every sec, collect browsers information
     while not killer.kill_now:
         time.sleep(1)
-        # get a lists of browsers processes and the coresponding cpu and iowait
-        procsList, procsCPU, ioWait = getDataFromKernel()
+        # get a lists of browsers processes and the coresponding cpu time and iowait
+        broswers_names, broswers_cpu_times, broswers_iowait = get_broswer_util_data()
+        # get the load average in 1 min, 5 mins, and 15 mins
         load1, load5, load15 = os.getloadavg()
-        row_tuple = (experimentID, get_time(),int(time.time()),str(procsList), \
-            str(procsCPU), str(ioWait), load1, load5, load15) # need to turn lsits into strs
+        row_tuple = (experimentID, get_time(),int(time.time()),str(broswers_names), \
+            str(broswers_cpu_times), broswers_iowait, load1, load5, load15) # need to turn lsits into strs
         write_monitoring_data(row_tuple, output_database_name)

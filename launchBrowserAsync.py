@@ -1,6 +1,5 @@
 import json, time
 
-from experiment_utils import timing_parameters
 
 async def launch_browser_async(
     pw_instance, 
@@ -107,7 +106,6 @@ async def get_results_async(
         performance_timing['server'] = response.headers['server']
     except Exception as e:
         print(str(e))
-        performance_timing = {timing : -1 for timing in timing_parameters}
         performance_timing['server'] = str(e)
     # close context, allowing next call to use same browser
     await context.close()
