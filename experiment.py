@@ -56,12 +56,17 @@ class TqdmLoggingHandler(logging.Handler):
 
 # set up logging, log file...
 logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+
 # console handler logs WARNING, ERROR, and CRITICAL to console
 consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.WARNING)
+consoleHandler.setFormatter(formatter)
 # file hanlder logs DEBUG, INFO, and above to file
 fileHandler = logging.FileHandler(f"{time.time()}.log")
 fileHandler.setLevel(logging.DEBUG)
+fileHandler.setFormatter(formatter)
 # add handlers to logger
 logger.addHandler(consoleHandler)
 logger.addHandler(fileHandler)
