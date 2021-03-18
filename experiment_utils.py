@@ -22,9 +22,9 @@ option_to_netemParam = {
     "4g-lte-advanced-lossy":(70, 1, 15000),
 }
 
-APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms loss {LOSS}%"
-APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: netem delay {LATENCY}ms"
-APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} root handle 1: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
+APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms loss {LOSS}%"
+APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms"
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
 def apply_condition(
@@ -32,21 +32,23 @@ def apply_condition(
     condition: str,
     ):
     latency, loss, bandwidth = option_to_netemParam[condition]
-    commandStatus = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    commandStatus = 0 # run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
     # handeling tc errors
+    command = ""
+    if loss == 0:
+        command = APPLY_LATENCY.format(DEVICE = device, LATENCY = latency)
+    else:
+        command = APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss)
+    commandStatus = run_tc_command(command)
     if commandStatus == 1: # this means that we had some trouble running tc!
         reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
         tqdm.write("reseting condition")
-        retry_command_status = run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+        retry_command_status = run_tc_command(command)
         if retry_command_status == 0:
             tqdm.write("reset tc command!")
         else:
             tqdm.write("RESET FAILED")
-    if loss == 0:
-        run_tc_command(APPLY_LATENCY.format(DEVICE = device, LATENCY = latency))
-    else:
-        run_tc_command(APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss))
-
+    run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
 
 def reset_condition(
     device: str, 
@@ -146,7 +148,7 @@ timings_fmt = {
     "domComplete" : "Float", 
     "loadEventStart" : "Float",
     "loadEventEnd" : "Float",
-    "error": "TEXT",
+    "error" : "TEXT",
 }
 
 processes_fmt = {
@@ -176,7 +178,7 @@ def setup_data_file_headers(
     # If directory doesn't exist, can't connect
     # Don't check disk for in-memory database
     if out != ":memory:":
-        os.mkdir(os.path.dirname(out))
+        os.makedirs(os.path.dirname(out),exist_ok = True)
 
     # only if database doesn't exist 
     big_table = ""
@@ -219,13 +221,7 @@ def write_big_table_data(data: json, db: Connection):
 
 def write_timing_data(data: json, db: Connection):
     insert = f"INSERT INTO timings VALUES ({ ('?,' * len(timings_fmt))[:-1]})"
-    data_list = []
-    for key in timings_fmt.keys():
-        try:
-            data_list.append(data[key])
-        except:
-            data_list.append("")
-    data_tuple = tuple(data_list)
+    data_tuple = tuple([data[key] if key in data else "" for key in timings_fmt.keys()])
     db.execute(insert, data_tuple)
     db.commit()
 

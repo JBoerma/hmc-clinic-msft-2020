@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -12,13 +12,14 @@ Arguments:
     --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb]
+    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
 
 Options:
     -h --help                 Show this screen 
     --disable_caching         Disables caching
     --warmup                  Warms up connection
     --async                   Run experiment asynchronously
+    --qlog                    Turns on QLog logging
 """
 
 import os, cache_control, time, random, subprocess, csv, json, sqlite3, asyncio, itertools
@@ -71,7 +72,7 @@ def main():
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     device = args['--device']
-    conditions = args['--conditions'].split()
+    conditions = args['--conditions']
     browsers = args['--browsers']
     url = args['--url']
     runs = int(args['--runs'])
@@ -83,6 +84,7 @@ def main():
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     run_async = args['--async']
     payloads = args['--payloads'].split()
+    qlog = args['--qlog']
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
     #    disable_caching=disable_caching,
@@ -108,7 +110,8 @@ def main():
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads =       payloads
+            payloads =       payloads,
+            qlog=            qlog 
         )
     else:
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
@@ -150,6 +153,7 @@ def run_sync_experiment(
     runs:            int, 
     disable_caching: bool,
     warmup:          bool,
+    qlog:             bool,
     database, 
     payloads:        List[str],
 ):
@@ -169,9 +173,8 @@ def run_sync_experiment(
                 random.shuffle(whenRunH3)
                 # run the same experiment multiple times over h3/h2
                 for (useH3, whichServer, payload, browser) in tqdm(whenRunH3):
-                    # results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer.pop(), warmup=warmup)
-                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup=warmup) # TODO: replace with the line above once we have all servers loaded
-                    results["experimentID"] = experimentID 
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup, qlog, experiment_id)
+                    results["experimentID"] = experiment_id
                     results["httpVersion"] = "h3" if useH3 else "h2" 
                     results["warmup"] = warmup
                     results["browser"] = browser 
@@ -181,8 +184,11 @@ def run_sync_experiment(
                     write_timing_data(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
                     # Print info from latest run and then go back lines to prevent broken progress bars
-                    tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
-
+                    # if the request fails, we will print out the message in the console
+                    if 'server' in results.keys():
+                        tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
+                    else:
+                        tqdm.write(f"{browser}: {'error'}({httpVersion})")
                 try:
                     util_process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
