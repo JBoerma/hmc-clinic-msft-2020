@@ -24,6 +24,7 @@ Options:
 
 import sys, os, time, random, subprocess, json, sqlite3, asyncio, itertools
 import cache_control
+from subprocess import Popen
 from typing import List, Dict, Tuple
 import cache_control
 from playwright.sync_api import sync_playwright
@@ -79,11 +80,10 @@ logger.addHandler(fileHandler)
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
-
+util_process = None
 
 schemaVer = "1.0"
 serverVersion = "?"
-
 # TODO: disable caching in all servers.
 def pre_experiment_setup(
     disable_caching: bool, 
@@ -115,8 +115,18 @@ class ResetTCOnExit:
         reset_condition(self.dev)
         # TODO after logging PR is in, replace with log
         print(f"Exiting Program due to SIGNUM {signum}", flush=True)
+        global util_process
+        if not util_process == None:
+            try:
+                util_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                # Cleaning up system monitoring subprocess
+                proc_pid = util_process.pid
+                process = psutil.Process(proc_pid)
+                for proc in process.children(recursive=True):
+                    proc.kill()
+                process.kill()
         sys.exit()
-
 
 def main():   
     # Process args
@@ -150,7 +160,6 @@ def main():
     if not run_async:
         run_sync_experiment(
             schema_version=  "0",
-            experiment_id=   str(int(time.time())),
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
@@ -194,8 +203,7 @@ def main():
 
 
 def run_sync_experiment(
-    schema_version:  str, 
-    experiment_id:   str,
+    schema_version:  str,
     git_hash:        str, 
     server_version:  str, 
     device:          str, 
@@ -213,11 +221,12 @@ def run_sync_experiment(
 ):
     with sync_playwright() as p:
             for condition in tqdm(conditions, desc="Experiments"):
-                experimentID = int(time.time()) # ensures no repeats
+                experiment_id = int(time.time()) # ensures no repeats
 
                 # Start system monitoring
-                client_util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID), 'client', str(out)])
-                tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
+                global util_process
+                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID), 'client', str(out)])
+                tableData = (schema_version, experiment_id, url, server_version, git_hash, condition)
                 write_big_table_data(tableData, database)
 
                 # Start server monitoring if accessing our own server
@@ -251,10 +260,10 @@ def run_sync_experiment(
                     else:
                         logger.error(f"{browser}: {'error'}({httpVersion})")
                 try:
-                    client_util_process.wait(timeout=3)
+                    util_process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
                     # Cleaning up system monitoring subprocess
-                    proc_pid = client_util_process.pid
+                    proc_pid = util_process.pid
                     process = psutil.Process(proc_pid)
                     for proc in process.children(recursive=True):
                         proc.kill()
