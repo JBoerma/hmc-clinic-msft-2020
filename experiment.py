@@ -38,6 +38,7 @@ from experiment_utils import apply_condition, reset_condition, setup_data_file_h
 from ssh_utils import start_server_monitoring, end_server_monitoring, on_server
 
 # Thanks to https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
+import logging
 class TqdmLoggingHandler(logging.Handler):
     def __init__(self, level=logging.NOTSET):
         super().__init__(level)
@@ -54,7 +55,6 @@ class TqdmLoggingHandler(logging.Handler):
 
 
 # set up logging, log file...
-import logging
 logger = logging.getLogger()
 # console handler logs WARNING, ERROR, and CRITICAL to console
 consoleHandler = TqdmLoggingHandler()
