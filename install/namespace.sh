@@ -22,8 +22,8 @@ sudo ip netns exec netns0 ip link set lo up
 sudo ip addr add 10.0.3.1/24 dev veth-default
 sudo ip netns exec netns0 ip addr add 10.0.3.2/24 dev veth-netns0
 
-# Enable Forwarding
-sudo echo 1 > sudo /proc/sys/net/ipv4/ip_forward
+# Enable IP Forwarding
+sudo sysctl -w net.ipv4.ip_forward=1
 
 # Setup IP Tables for forwarding
 sudo iptables -A FORWARD -o $device -i veth-default -j ACCEPT
