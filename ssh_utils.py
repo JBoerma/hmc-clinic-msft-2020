@@ -3,6 +3,9 @@ import paramiko
 from os import path
 from paramiko import SSHClient
 
+import logging 
+logger = logging.getLogger()
+
 SERVER_KEY = "MSFT_Clinic_Key.pem"
 SERVER_IPS_FILENAME = "ips.json"
 SERVER_IPS_EXAMPLE_FILENAME = "ips.example.json"
@@ -11,7 +14,7 @@ CMD_CD_ROOT = "cd ~/hmc-clinic-msft-2020"
 
 
 def execute_cmd_blocking(ssh: SSHClient, cmd: str): 
-    print(f"\t>\t{cmd}")
+    logger.debug(f"\t>\t{cmd}")
     # ssh.exec_command will only run ONE command, and it gives us 
     # stdin, stdout, and stderr to work with. We have no further input, 
     # so we just want to read everything from stdout and stderr.
@@ -31,15 +34,15 @@ def execute_cmd_blocking(ssh: SSHClient, cmd: str):
     lines = dat.splitlines()
     lines_err = dat_err.splitlines()
     for line in lines:
-        print(f"\t\t{line}")
+        logger.debug(f"\t\t{line}")
     for line in lines_err:
-        print(f"\t\t{line}")
+        logger.debug(f"\t\t{line}")
 
 
 # This mutates ssh, so later down the line we can recover the 
 # channels later if we want.
 def execute_cmd(ssh: SSHClient, cmd: str):
-    print(f"\t>\t{cmd}")
+    logger.debug(f"\t>\t{cmd}")
     # ignoring stdout, stderr from this. Polling every so often would 
     # perhaps be too complex. Maybe we can get all of stdout,stderr in 
     # end_server_monitoring?
@@ -50,7 +53,7 @@ def execute_cmd(ssh: SSHClient, cmd: str):
 def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
     key = paramiko.RSAKey.from_private_key_file(SERVER_KEY)
     while True:  # keep trying until things work or everything breaks
-        print("Trying to connect to server...")
+        logger.info("Trying to connect to server...")
         try: 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -58,19 +61,19 @@ def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
             ssh.connect(ip, username="clinic", pkey=key, banner_timeout=200)
             break
         except paramiko.AuthenticationException as e:
-            print("Auth failed when connecting to Server:")
-            print(e)
-            print("Trying again")
+            logger.error("Auth failed when connecting to Server:")
+            logger.error(e)
+            logger.info("Trying again")
         except paramiko.ssh_exception.SSHException as e: 
-            print("Encountered exception:")
-            print(e) 
-            print("Trying again...")
+            logger.error("Encountered exception:")
+            logger.error(e) 
+            logger.info("Trying again...")
         except Exception as e: 
-            print("Unexpected exception")
-            print(e)
+            logger.critical("Unexpected exception")
+            logger.critical(e)
             sys.exit(1)
     
-    print("Successful Connection: Running Commands")
+    logger.info("Successful Connection: Running Commands")
     commands = [
         CMD_CD_ROOT,
         "cd install",
@@ -81,7 +84,7 @@ def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
     ## TODO - Test
     cmd_start_monitor = f"python3 systemUtil.py {exp_id} server {out}"
     execute_cmd(ssh, " && ".join([CMD_CD_ROOT, cmd_start_monitor]))
-    print("successfully ran systemUtil on server")
+    logger.info("successfully ran systemUtil on server")
     return ssh
 
 
