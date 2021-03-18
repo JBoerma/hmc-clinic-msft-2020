@@ -6,6 +6,9 @@ import re, os, time, glob
 
 from experiment_utils import reset_condition, apply_condition
 
+import logging
+logger = logging.getLogger()
+
 """
 A single sync experiment consists of a single request.
 First emulate the desired network condition,
@@ -182,7 +185,7 @@ def get_results_sync(
     # set up the browser context and page
     context = browser.new_context()
     page = context.new_page()
-    tqdm.write( f"sync 131 {payload}")
+    logger.debug(f"sync 131 {payload}")
     # use regular expression to check the format of the url
     regex = re.compile(r"\.\D+")
     if not regex.findall(url):
@@ -206,7 +209,7 @@ def get_results_sync(
         performance_timing['server'] = response.headers['server']
     except Exception as e:
         # if we run into error, write it in the database
-        tqdm.write(str(e))
+        logger.error(str(e))
         performance_timing = {'error': str(e)}
         pass
     browser.close()

@@ -3,6 +3,9 @@ from sqlite3 import Connection, connect
 from datetime import datetime
 from tqdm import tqdm
 
+import logging
+logger = logging.getLogger()
+
 """
 A dictionary that maps network condition in string to a tuple of tc parameters
 realistic parameters are obtained here:
@@ -63,16 +66,18 @@ def apply_condition(
         command = APPLY_LATENCY.format(DEVICE = device, LATENCY = latency)
     else:
         command = APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss)
+
     command_status = run_tc_command(command)
     # if we have had some trouble setting tc, remove all the previous TC settings, and try setting tc again
-    if command_status == 1:
-        reset_condition(device)
-        tqdm.write("reseting condition")
+    if command_status == 1: # this means that we had some trouble running tc!
+        reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
+        logger.debug("reseting condition")
         retry_command_status = run_tc_command(command)
         if retry_command_status == 0:
-            tqdm.write("reset tc command!")
+            logger.debug("reset tc command!")
         else:
-            tqdm.write("RESET FAILED") # if resetting tc does not work, we will keep track of the error
+
+            logger.error("RESET TC COMMAND FAILED") # if resetting tc does not work, we will keep track of the error
     # applying the second tc command
     run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
 
@@ -93,13 +98,14 @@ def run_tc_command(
     command: str,
 ):
     if command:
-        tqdm.write(f"commands are {command}")
+        logger.info(f"commands are {command}")
         result = subprocess.run(command.split())
         if result.returncode > 0:
-            tqdm.write("Issue running TC!")
-            tqdm.write(str(result.args))
-            tqdm.write(str(result.stderr))
-            tqdm.write("--------------------------")
+            # Info because this error is logged higher up in the execution tree
+            logger.info("Issue running TC!")
+            logger.info(str(result.args))
+            logger.info(str(result.stderr))
+            logger.info("--------------------------")
             return 1 # failed
         return 0 #success
 
