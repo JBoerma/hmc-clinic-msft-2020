@@ -57,7 +57,7 @@ def apply_condition(
     except KeyError:
         # Basic attempt to add in custom tc condition
         latency, loss, bandwidth = map(int,condition.split(' '))
-    print(latency, loss, bandwidth)
+    logger.info(f"{latency}, {loss}, {bandwidth}")
 
     # handeling tc errors
     command_status = 0
