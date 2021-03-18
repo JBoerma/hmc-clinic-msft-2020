@@ -71,6 +71,7 @@ def collectProcessesData():
 # general system information
 if __name__ == "__main__":
     experimentID = sys.argv[1]
+    output_database_name = sys.argv[2]
     killer = GracefulKiller()
     # currentcpuTime = []
     # currentTime = []
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     # Write processdata
     process_data = collectProcessesData()
     for row in process_data:
-        write_processes_data(row)
+        write_processes_data(row, output_database_name)
     while not killer.kill_now:
         time.sleep(1)
         # get a lists of browsers processes and the coresponding cpu and iowait
@@ -95,4 +96,4 @@ if __name__ == "__main__":
         load1, load5, load15 = os.getloadavg()
         row_tuple = (experimentID, get_time(),int(time.time()),str(procsList), \
             str(procsCPU), str(ioWait), load1, load5, load15) # need to turn lsits into strs
-        write_monitoring_data(row_tuple)
+        write_monitoring_data(row_tuple, output_database_name)

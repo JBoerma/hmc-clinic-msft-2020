@@ -161,7 +161,7 @@ def run_sync_experiment(
             for condition in tqdm(conditions, desc="Experiments"):
                 experimentID = int(time.time()) # ensures no repeats
                 # Start system monitoring
-                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID)])
+                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID), str(out)])
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
                 whenRunH3 = [(h3, port, payload, browser) 
