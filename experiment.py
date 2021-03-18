@@ -37,6 +37,20 @@ from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
 from ssh_utils import start_server_monitoring, end_server_monitoring, on_server
 
+# set up logging, log file...
+import logging
+logger = logging.getLogger()
+# console handler logs WARNING, ERROR, and CRITICAL to console
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(logging.WARNING)
+# file hanlder logs DEBUG, INFO, and above to file
+fileHandler = logging.FileHandler(f"{time.time()}".log)
+fileHandler.setLevel(logging.DEBUG)
+# add handlers to logger
+logger.addHandler(consoleHandler)
+logger.addHandler(fileHandler)
+
+
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
