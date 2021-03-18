@@ -57,7 +57,7 @@ def apply_condition(
     except KeyError:
         # Basic attempt to add in custom tc condition
         latency, loss, bandwidth = map(int,condition.split(' '))
-    logger.info(f"{latency}, {loss}, {bandwidth}")
+    logger.debug(f"{latency}, {loss}, {bandwidth}")
 
     # handeling tc errors
     command_status = 0
@@ -98,14 +98,14 @@ def run_tc_command(
     command: str,
 ):
     if command:
-        logger.info(f"commands are {command}")
+        logger.debug(f"commands are {command}")
         result = subprocess.run(command.split())
         if result.returncode > 0:
             # Info because this error is logged higher up in the execution tree
-            logger.info("Issue running TC!")
-            logger.info(str(result.args))
-            logger.info(str(result.stderr))
-            logger.info("--------------------------")
+            logger.debug("Issue running TC!")
+            logger.debug(str(result.args))
+            logger.debug(str(result.stderr))
+            logger.debug("--------------------------")
             return 1 # failed
         return 0 #success
 

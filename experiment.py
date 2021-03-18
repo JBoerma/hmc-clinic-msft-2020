@@ -61,7 +61,7 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 
 # console handler logs WARNING, ERROR, and CRITICAL to console
 consoleHandler = TqdmLoggingHandler()
-consoleHandler.setLevel(logging.WARNING)
+consoleHandler.setLevel(logging.INFO)
 consoleHandler.setFormatter(formatter)
 # file hanlder logs DEBUG, INFO, and above to file
 fileHandler = logging.FileHandler(f"{time.time()}.log")
@@ -227,7 +227,7 @@ def run_sync_experiment(
                     # Print info from latest run and then go back lines to prevent broken progress bars
                     # if the request fails, we will print out the message in the console
                     if 'server' in results.keys():
-                        logger.info(f"{browser}: {results['server']} ({httpVersion})")
+                        logger.debug(f"{browser}: {results['server']} ({httpVersion})")
                     else:
                         logger.error(f"{browser}: {'error'}({httpVersion})")
                 try:
