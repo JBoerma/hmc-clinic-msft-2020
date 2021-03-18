@@ -60,7 +60,7 @@ logger = logging.getLogger()
 consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.WARNING)
 # file hanlder logs DEBUG, INFO, and above to file
-fileHandler = logging.FileHandler(f"{time.time()}".log)
+fileHandler = logging.FileHandler(f"{time.time()}.log")
 fileHandler.setLevel(logging.DEBUG)
 # add handlers to logger
 logger.addHandler(consoleHandler)
