@@ -80,7 +80,7 @@ def launch_firefox_sync(
             qlog_path = set_up_qlogs_dir(qlog_dir, expnt_id)
         domain = get_domain(url)
         firefox_prefs["network.http.http3.enabled"] = True # enable h3 protocol
-        # the caddy server works with a different h3 version than the rest of the servers
+        # the openlightspeed server works with a different h3 version than the rest of the servers
         if '446' in port:
             firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-27={port.split('/')[0]}"
         else:
