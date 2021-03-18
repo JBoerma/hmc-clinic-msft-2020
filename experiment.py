@@ -165,7 +165,7 @@ def main():
     #     disable_caching=disable_caching,
     # )
         
-    print("Finished!\n")
+    logger.info("Finished!")
 
 
 def run_sync_experiment(
@@ -222,9 +222,9 @@ def run_sync_experiment(
                     # Print info from latest run and then go back lines to prevent broken progress bars
                     # if the request fails, we will print out the message in the console
                     if 'server' in results.keys():
-                        tqdm.write(f"{browser}: {results['server']} ({httpVersion})")
+                        logger.info(f"{browser}: {results['server']} ({httpVersion})")
                     else:
-                        tqdm.write(f"{browser}: {'error'}({httpVersion})")
+                        logger.error(f"{browser}: {'error'}({httpVersion})")
                 try:
                     client_util_process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
