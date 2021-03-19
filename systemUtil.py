@@ -7,10 +7,7 @@ import sys
 import subprocess
 from experiment_utils import write_monitoring_data, get_time, write_processes_data
 
-import logging
-logger = logging.getLogger()
 
-systemUtilLog = "results/systemUtilLog.csv"
 hz = os.sysconf('SC_CLK_TCK')
 
 """
