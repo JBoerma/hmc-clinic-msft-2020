@@ -9,7 +9,7 @@ This repository currently contains
 3. dummy files as the payloads of the servers.
 4. script for visualization the database.
 
-This is designed to run on *Ubuntu 20.04*.
+This is designed to run on *Ubuntu 18.04*.
 
 ## Install
 To set up a client VM, run the following in the desired directory:
@@ -61,7 +61,7 @@ The script currently uses [tc-netem](https://www.man7.org/linux/man-pages/man8/t
 
 For example, to access a specific server 10 times through Firefox with a good 4g network, run:
 
-    python3 experiment.py --browsers firefox --conditions 4g-lte-good --out results/data.db --url 10.0.0.0 --runs 10
+    python3 experiment.py --browsers firefox --conditions 4g-lte-good --out results/data.db --url localhost --runs 10
     
 The output of this script will be stored in two files:
 
