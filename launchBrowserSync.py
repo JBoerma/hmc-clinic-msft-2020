@@ -49,7 +49,7 @@ def launch_browser_sync(
 ) -> json:
     qlog_dir = f"{os.getcwd()}/results/qlogs/"
     if not os.path.exists(qlog_dir):
-        os.mkdir(qlog_dir)
+        os.mkdir(qlog_dir, exist_ok = True)
     if browser_type  ==  "firefox":
         return launch_firefox_sync(pw_instance, url, h3, port, payload, warmup, qlog, expnt_id)
     elif browser_type  ==  "chromium":
