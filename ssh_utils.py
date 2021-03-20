@@ -1,5 +1,6 @@
 import time, sys
 import paramiko
+from paramiko import SSHClient
 
 SERVER_KEY = "MSFT_Clinic_Key.pem"
 SERVER_IP = "20.64.240.88"  
@@ -7,7 +8,7 @@ SERVER_IP = "20.64.240.88"
 CMD_CD_ROOT = "cd ~/hmc-clinic-msft-2020"
 
 
-def execute_cmd_blocking(ssh: "SSHClient", cmd: str): 
+def execute_cmd_blocking(ssh: SSHClient, cmd: str): 
     print(f"\t>\t{cmd}")
     _, stdout, stderr = ssh.exec_command(cmd)
     dat = ""
@@ -26,13 +27,13 @@ def execute_cmd_blocking(ssh: "SSHClient", cmd: str):
         print(f"\t\t{line}")
 
 
-def execute_cmd(ssh: "SSHClient", cmd: str):
+def execute_cmd(ssh: SSHClient, cmd: str):
     print(f"\t>\t{cmd}")
     _, stdout, stderr = ssh.exec_command(cmd)
 
 
 # thanks to https://stackoverflow.com/questions/3586106/perform-commands-over-ssh-with-python/57439663#57439663
-def start_server_monitoring(exp_id: str, out: str) -> "SSHClient":
+def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
     key = paramiko.RSAKey.from_private_key_file(SERVER_KEY)
     while True: 
         print("Trying to connect to server...")
@@ -70,5 +71,5 @@ def start_server_monitoring(exp_id: str, out: str) -> "SSHClient":
 
 
 # hopefully closing connection is sufficient to end process
-def end_server_monitoring(ssh: "SSHClient"): 
+def end_server_monitoring(ssh: SSHClient): 
     ssh.close()
