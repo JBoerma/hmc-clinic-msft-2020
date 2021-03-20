@@ -40,7 +40,7 @@ The script currently uses [tc-netem](https://www.man7.org/linux/man-pages/man8/t
 
 ### With Private Server Virtual Machine
 Ensure that
-* you have updated the file `ips.json` on the Client VM with the public and private IPs of the Server VM.
+* you have added a file `ips.json` on the Client VM with the public and private IPs of the Server VM. Follow the example of `ips.example.json`
 * you have a private key in a file `MSFT_Clinic_Key.pem`
 
 This will enable the script to automatically start servers on the Server VM,

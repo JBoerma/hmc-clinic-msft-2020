@@ -1,9 +1,11 @@
 import time, sys, json
 import paramiko
+from os import path
 from paramiko import SSHClient
 
 SERVER_KEY = "MSFT_Clinic_Key.pem"
 SERVER_IPS_FILENAME = "ips.json"
+SERVER_IPS_EXAMPLE_FILENAME = "ips.example.json"
 
 CMD_CD_ROOT = "cd ~/hmc-clinic-msft-2020"
 
@@ -89,7 +91,10 @@ def end_server_monitoring(ssh: SSHClient):
 
 
 def get_server_ips_dict(): 
-    with open(SERVER_IPS_FILENAME) as f: 
+    name = SERVER_IPS_FILENAME
+    if not path.exists(SERVER_IPS_FILENAME): 
+        name = SERVER_IPS_EXAMPLE_FILENAME
+    with open(name) as f: 
         return json.load(f)
 
 
