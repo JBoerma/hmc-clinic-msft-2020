@@ -2,7 +2,7 @@ import json, time
 
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger('__main__.' + __name__)
 
 async def launch_browser_async(
     pw_instance, 

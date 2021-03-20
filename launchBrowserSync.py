@@ -7,7 +7,7 @@ import re, os, time, glob
 from experiment_utils import reset_condition, apply_condition
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger('__main__.' + __name__)
 
 """
 A single sync experiment consists of a single request.

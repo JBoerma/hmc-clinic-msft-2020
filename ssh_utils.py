@@ -4,7 +4,7 @@ from os import path
 from paramiko import SSHClient
 
 import logging 
-logger = logging.getLogger()
+logger = logging.getLogger('__main__.' + __name__)
 
 SERVER_KEY = "MSFT_Clinic_Key.pem"
 SERVER_IPS_FILENAME = "ips.json"

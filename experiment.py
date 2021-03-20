@@ -55,7 +55,7 @@ class TqdmLoggingHandler(logging.Handler):
 
 
 # set up logging, log file...
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 
