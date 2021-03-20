@@ -10,15 +10,22 @@ CMD_CD_ROOT = "cd ~/hmc-clinic-msft-2020"
 
 def execute_cmd_blocking(ssh: SSHClient, cmd: str): 
     print(f"\t>\t{cmd}")
+    # ssh.exec_command will only run ONE command, and it gives us 
+    # stdin, stdout, and stderr to work with. We have no further input, 
+    # so we just want to read everything from stdout and stderr.
     _, stdout, stderr = ssh.exec_command(cmd)
     dat = ""
     dat_err = ""
+    # until both channels are done transmitting...
     while not stderr.channel.exit_status_ready() or not stdout.channel.exit_status_ready():
+        # check each channel to see if any bytes are ready to be received
+        # and receive at most 1024 at a time.
         if stdout.channel.recv_ready():
             dat = dat + str(stdout.channel.recv(1024))
         if stderr.channel.recv_ready():
             dat_err = dat + str(stderr.channel.recv(1024))
     
+    # split the received data by newlines, and print.
     lines = dat.splitlines()
     lines_err = dat_err.splitlines()
     for line in lines:
@@ -27,15 +34,20 @@ def execute_cmd_blocking(ssh: SSHClient, cmd: str):
         print(f"\t\t{line}")
 
 
+# This mutates ssh, so later down the line we can recover the 
+# channels later if we want.
 def execute_cmd(ssh: SSHClient, cmd: str):
     print(f"\t>\t{cmd}")
-    _, stdout, stderr = ssh.exec_command(cmd)
+    # ignoring stdout, stderr from this. Polling every so often would 
+    # perhaps be too complex. Maybe we can get all of stdout,stderr in 
+    # end_server_monitoring?
+    _, _, _ = ssh.exec_command(cmd)
 
 
 # thanks to https://stackoverflow.com/questions/3586106/perform-commands-over-ssh-with-python/57439663#57439663
 def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
     key = paramiko.RSAKey.from_private_key_file(SERVER_KEY)
-    while True: 
+    while True:  # keep trying until things work or everything breaks
         print("Trying to connect to server...")
         try: 
             ssh = paramiko.SSHClient()
