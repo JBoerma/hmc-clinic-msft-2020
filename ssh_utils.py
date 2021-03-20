@@ -64,7 +64,7 @@ def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
     execute_cmd_blocking(ssh, " && ".join(commands))
 
     ## TODO - Test
-    cmd_start_monitor = f"python3 system_monitoring.py {exp_id} server {out}"
+    cmd_start_monitor = f"python3 systemUtil.py {exp_id} server {out}"
     execute_cmd(ssh, " && ".join([CMD_CD_ROOT, cmd_start_monitor]))
     print("successfully ran systemUtil on server")
     return ssh
