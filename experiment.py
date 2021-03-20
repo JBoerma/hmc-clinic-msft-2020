@@ -225,14 +225,14 @@ def run_sync_experiment(
 
                 # Start system monitoring
                 global util_process
-                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experimentID), 'client', str(out)])
+                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experiment_id), 'client', str(out)])
                 tableData = (schema_version, experiment_id, url, server_version, git_hash, condition)
                 write_big_table_data(tableData, database)
 
                 # Start server monitoring if accessing our own server
                 ssh_client = None
                 if on_server(url=url):
-                    ssh_client = start_server_monitoring(experimentID, str(out))
+                    ssh_client = start_server_monitoring(experiment_id, str(out))
 
                 whenRunH3 = [(h3, port, payload, browser) 
                                 for browser in browsers 
