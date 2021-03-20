@@ -35,7 +35,7 @@ from sqlite3 import Connection
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
-from ssh_utils import start_server_monitoring, end_server_monitoring
+from ssh_utils import start_server_monitoring, end_server_monitoring, on_server
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -165,8 +165,10 @@ def run_sync_experiment(
                 tableData = (schemaVer, experimentID, url, serverVersion, git_hash, condition)
                 write_big_table_data(tableData, database)
 
-                # Start server monitoring
-                ssh_client = start_server_monitoring(experimentID, str(out))
+                # Start server monitoring if accessing our own server
+                ssh_client = None
+                if on_server(url=url):
+                    ssh_client = start_server_monitoring(experimentID, str(out))
 
                 whenRunH3 = [(h3, port, payload, browser) 
                                 for browser in browsers 
@@ -204,7 +206,8 @@ def run_sync_experiment(
                     process.kill()
                 
                 # end server monitoring 
-                end_server_monitoring(ssh=ssh_client)
+                if on_server(url=url):
+                    end_server_monitoring(url, ssh=ssh_client)
 
 
 async def run_async_experiment(

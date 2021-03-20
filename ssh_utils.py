@@ -1,9 +1,9 @@
-import time, sys
+import time, sys, json
 import paramiko
 from paramiko import SSHClient
 
 SERVER_KEY = "MSFT_Clinic_Key.pem"
-SERVER_IP = "20.64.240.88"  
+SERVER_IPS_FILENAME = "ips.json"
 
 CMD_CD_ROOT = "cd ~/hmc-clinic-msft-2020"
 
@@ -40,7 +40,8 @@ def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
         try: 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(SERVER_IP, username="clinic", pkey=key, banner_timeout=200)
+            ip = get_server_ips_dict()["public_ip"]
+            ssh.connect(ip, username="clinic", pkey=key, banner_timeout=200)
             break
         except paramiko.AuthenticationException as e:
             print("Auth failed when connecting to Server:")
@@ -73,3 +74,15 @@ def start_server_monitoring(exp_id: str, out: str) -> SSHClient:
 # hopefully closing connection is sufficient to end process
 def end_server_monitoring(ssh: SSHClient): 
     ssh.close()
+
+
+def get_server_ips_dict(): 
+    with open(SERVER_IPS_FILENAME) as f: 
+        return json.load(f)
+
+
+def on_server(url: str) -> bool:
+    server_ips = get_server_ips_dict()
+    if url in [server_ips["public_ip"], server_ips["private_ip"]]:
+        return True
+    return False
