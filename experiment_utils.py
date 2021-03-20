@@ -4,7 +4,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 import logging
-logger = logging.getLogger()
+logger = logging.getLogger('__main__.' + __name__)
 
 """
 A dictionary that maps network condition in string to a tuple of tc parameters
