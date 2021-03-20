@@ -2,31 +2,36 @@
 Contains all work from the Harvey Mudd College 2020-2021 Microsoft Clinic team. 
 
 This repository currently contains 
-1. install scripts for installing a NGINX Server with a patch for Cloudflare's Quiche implementation of HTTP/3, a Caddy Server
-2. scripts for testing HTTP/3 and HTTP/2 with simulated network conditions.
-3. scripts for installing [Web Page Test!](https://github.com/WPO-Foundation/webpagetest).
-4. scripts for seting up a client VM and a server VM on Azure.
-3. dummy files as the payloads of the servers.
-4. script for visualization the database.
+1. Install scripts for installing a NGINX Server with a patch for Cloudflare's Quiche implementation of HTTP/3, a Caddy Server
+2. Scripts for testing HTTP/3 and HTTP/2 with simulated network conditions.
+3. Scripts for installing [Web Page Test!](https://github.com/WPO-Foundation/webpagetest).
+4. Scripts for seting up a client VM and a server VM on Azure.
+5. A Script for creating a network namespace to run experiments in
+6. Dummy files as the payloads of the servers.
+7. A Script for visualization the database.
 
 This is designed to run on *Ubuntu 18.04*.
 
 ## Install
 To set up a client VM, run the following in the desired directory:
 
-    git clone https://github.com/JBoerma/hmc-clinic-msft-2020.git
-    cd hmc-clinic-msft-2020/install/
-    ./install-clients.sh
-  
+```bash
+git clone https://github.com/JBoerma/hmc-clinic-msft-2020.git
+cd hmc-clinic-msft-2020/install/
+./install-clients.sh
+```
+
 Similarly, to set up a server VM:
 
-    git clone https://github.com/JBoerma/hmc-clinic-msft-2020.git
-    cd hmc-clinic-msft-2020/install/
-    ./install-servers.sh 
-  
+```bash
+git clone https://github.com/JBoerma/hmc-clinic-msft-2020.git
+cd hmc-clinic-msft-2020/install/
+./install-servers.sh 
+```
+
 To install the servers and set up the environment, run the following on the server VM:
     ./install-all.sh
-  
+
 You can verify the install by visiting https://localhost
 
 ## Running the Script
@@ -39,18 +44,22 @@ The script currently uses [tc-netem](https://www.man7.org/linux/man-pages/man8/t
 * [playwright-python](https://github.com/microsoft/playwright-python)
 
 #### Usage
-    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
-    
+```bash
+experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
+```
+
 #### Arguments
-    --device DEVICE           Network device to modify [default: lo]
-    --conditions CONDITIONS   List of network conditions [default: 4g-lte-good 3g-unts-good]
-    --browsers BROWSERS       List of browsers to test [default: chromium edge]
-    --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
-    --url URL                 URL to access [default: https://localhost]
-    --runs RUNS               Number of runs in the experiment [default: 100]
-    --out OUT                 File to output data to [default: results/results.db]
-    --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
+```bash
+--device DEVICE           Network device to modify [default: lo]
+--conditions CONDITIONS   List of network conditions [default: 4g-lte-good 3g-unts-good]
+--browsers BROWSERS       List of browsers to test [default: chromium edge]
+--throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
+--url URL                 URL to access [default: https://localhost]
+--runs RUNS               Number of runs in the experiment [default: 100]
+--out OUT                 File to output data to [default: results/results.db]
+--ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
+--payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
+```
 
 #### Options
     -h --help                 Show this screen 
@@ -61,8 +70,10 @@ The script currently uses [tc-netem](https://www.man7.org/linux/man-pages/man8/t
 
 For example, to access a specific server 10 times through Firefox with a good 4g network, run:
 
-    python3 experiment.py --browsers firefox --conditions 4g-lte-good --out results/data.db --url localhost --runs 10
-    
+```bash
+python3 experiment.py --browsers firefox --conditions 4g-lte-good --out results/data.db --url localhost --runs 10
+```
+
 The output of this script will be stored in two files:
 
 In the client VM,
@@ -70,7 +81,7 @@ In the client VM,
 
 In the server VM
 
-## Using Network Namespace
+## Using a Network Namespace
 
 If starting tests through SSH on a VM, the experiments can throttle your connection if network conditions are simulated on the same device your SSH connection is going through. To prevent this, there is a script `install/namespace.sh` which initializes network namespace with a virtual ethernet device to simulate conditions on.
 
@@ -92,7 +103,9 @@ lo
 lo
 ```
 
-Running the script will initially print out all currently connected devices. Type the name of the desired device to run experiments on, and the script will create a new network namespace that can connect to other networks through that device. In order to run experiments inside the namespace, run:
+Running the script will initially print out all currently connected devices. Type the name of the desired device to run experiments on, and the script will create a new network namespace that can connect to other networks through that device. 
+
+In order to run experiments inside the namespace, run:
 
 ```bash
 sudo ip netns exec netns0 sudo -u $USER python3 experiment.py --device veth-netns0
