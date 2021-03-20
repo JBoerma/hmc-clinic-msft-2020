@@ -38,6 +38,13 @@ You can verify the install by visiting https://localhost
 This script will access a given URL using HTTP/2 and HTTP/3 under specified network conditions and with specific browsers, and return navigation timings using the PerformanceNavigationTiming interface, which implements the [Performance Timing Level 2](https://www.w3.org/TR/navigation-timing-2/) specification.
 The script currently uses [tc-netem](https://www.man7.org/linux/man-pages/man8/tc-netem.8.html) to modify the network conditions, so root access is required.
 
+### With Private Server Virtual Machine
+Ensure that
+* you have added a file `ips.json` on the Client VM with the public and private IPs of the Server VM. Follow the example of `ips.example.json`
+* you have a private key in a file `MSFT_Clinic_Key.pem`
+
+This will enable the script to automatically start servers on the Server VM,
+as well as enable monitoring of server resources.
 
 ### Dependencies
 * Python 3.6+

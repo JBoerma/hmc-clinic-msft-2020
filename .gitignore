@@ -21,3 +21,6 @@ graph
 
 # should we ignore caddy?
 caddy
+
+# ignore files with critical info
+ips.json

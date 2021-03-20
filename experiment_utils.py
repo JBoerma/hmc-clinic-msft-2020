@@ -49,7 +49,13 @@ def apply_condition(
     device: str, 
     condition: str,
     ):
-    latency, loss, bandwidth = condition_to_params[condition]
+    try:
+        latency, loss, bandwidth = condition_to_params[condition]
+    except KeyError:
+        # Basic attempt to add in custom tc condition
+        latency, loss, bandwidth = map(int,condition.split(' '))
+    print(latency, loss, bandwidth)
+
     # handeling tc errors
     command_status = 0
     command = ""

@@ -5,7 +5,6 @@ import csv
 import os
 import sys
 import subprocess
-
 from experiment_utils import write_monitoring_data, get_time, write_processes_data
 
 hz = os.sysconf('SC_CLK_TCK')
@@ -18,8 +17,15 @@ broswers_iowait: the current iowait
 """
 def get_broswer_util_data():
     procs = os.listdir('/proc')
-    broswers_cpu_times = []
-    broswers_names = []
+    procs_cpu_times = []
+    procs_names = []
+
+    # Determine if we're monitoring client or server
+    if sys.argv[2] == 'client':
+        procs_checklist = ['(firefox)', '(chrome)', '(msedge)']
+    elif sys.argv[2] == 'server':
+        procs_checklist = ['(nginx)','(caddy)','(openlitespeed)']
+
     # iterate through all the running process with numeric pid
     for proc in procs:
         if proc.isnumeric():
@@ -31,22 +37,23 @@ def get_broswer_util_data():
                 stat = data.split()
                 # find the process corresponding to the browser instances
                 # proc/[pid]/stat[1]:comm is the filename of the executable 
-                if str(stat[1]) in ['(firefox)', '(chrome)', '(msedge)']:
+                if str(stat[1]) in procs_checklist:
                     # add the CPU time to the list
                     # proc/[pid]/stat[13]:utime is the amount of time that this process has been scheduled
                     # in user mode, measured in clock ticks 
-                    broswers_cpu_times.append(int(stat[13])/hz)
+                    procs_cpu_times.append(int(stat[13])/hz)
                     # add the name of the process (browser instance) to the list
-                    broswers_names.append(stat[1][1:-1])
+                    procs_names.append(stat[1][1:-1])
             # sometimes right after we obtain the pid, the process ends, then we will ignore the process
             except FileNotFoundError:
                 pass
+    # Get iowait data
     with open('/proc/stat', 'r') as f:
         data = f.read()
         # proc/stat[4]: iowait is the time  a task waits for I/O to complete
         # this number is not reliable, detailed see https://man7.org/linux/man-pages/man5/procfs.5.html
         iowait = data.split()[4]
-    return broswers_names, broswers_cpu_times, iowait
+    return procs_names, procs_cpu_times, iowait
 
 
 """
@@ -81,7 +88,7 @@ def get_all_processes_data():
 if __name__ == "__main__":
     # getting experimentID and database name from the arguments
     experimentID = sys.argv[1]
-    output_database_name = sys.argv[2]
+    output_database_name = sys.argv[3]
     killer = GracefulKiller()
     # Write processdata to the database TODO how often should we write process data to the database?
     process_data = get_all_processes_data()
@@ -91,9 +98,9 @@ if __name__ == "__main__":
     while not killer.kill_now:
         time.sleep(1)
         # get a lists of browsers processes and the coresponding cpu time and iowait
-        broswers_names, broswers_cpu_times, broswers_iowait = get_broswer_util_data()
+        procs_names, procs_cpu_times, procs_iowait = get_broswer_util_data()
         # get the load average in 1 min, 5 mins, and 15 mins
         load1, load5, load15 = os.getloadavg()
-        row_tuple = (experimentID, get_time(),int(time.time()),str(broswers_names), \
-            str(broswers_cpu_times), broswers_iowait, load1, load5, load15) # need to turn lsits into strs
+        row_tuple = (experimentID, get_time(),int(time.time()),str(procs_names), \
+            str(procs_cpu_times), procs_iowait, load1, load5, load15) # need to turn lsits into strs
         write_monitoring_data(row_tuple, output_database_name)
