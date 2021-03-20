@@ -116,7 +116,7 @@ class ResetTCOnExit:
         # TODO after logging PR is in, replace with log
         print(f"Exiting Program due to SIGNUM {signum}", flush=True)
         global util_process
-        if not util_process == None:
+        if util_process:
             try:
                 util_process.wait(timeout=3)
             except subprocess.TimeoutExpired:
