@@ -3,7 +3,12 @@ from sqlite3 import Connection, connect
 from datetime import datetime
 from tqdm import tqdm
 
-option_to_netemParam = {
+"""
+A dictionary that maps network condition in string to a tuple of tc parameters
+realistic parameters are obtained here:
+https://www.browserstack.com/docs/automate/selenium/simulate-network-conditions
+"""
+condition_to_params = {
     # network condition   (latency, packetloss, bandwidth(download speed))
     "2g-gprs-good":         (500, 1, 50),
     "2g-gprs-lossy":        (650, 2, 30),
@@ -22,42 +27,64 @@ option_to_netemParam = {
     "4g-lte-advanced-lossy":(70, 1, 15000),
 }
 
+"""
+TC command templetes for emulating
+latency/loss (https://man7.org/linux/man-pages/man8/tc-netem.8.html) 
+and bandwidth using TBF (https://man7.org/linux/man-pages/man8/tc-tbf.8.html)
+Applying both latency/loss and bandwidth, according to
+https://lists.linuxfoundation.org/pipermail/netem/2007-April/001101.html
+
+"""
 APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms loss {LOSS}%"
 APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms"
-APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}" #TODO: latency or limit??
+# TODO: we are still not sure whether this emulates the desired network conditions, specifically we are not sure how to 
+# set the value of `burst` or `limit`, will need to further investigate into this
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
+"""
+Emulate the network condition using TC netem and TBF
+"""
 def apply_condition(
     device: str, 
     condition: str,
     ):
-    latency, loss, bandwidth = option_to_netemParam[condition]
-    commandStatus = 0 # run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
+    latency, loss, bandwidth = condition_to_params[condition]
     # handeling tc errors
+    command_status = 0
     command = ""
     if loss == 0:
         command = APPLY_LATENCY.format(DEVICE = device, LATENCY = latency)
     else:
         command = APPLY_LATENCY_LOSS.format(DEVICE = device, LATENCY = latency, LOSS = loss)
-    commandStatus = run_tc_command(command)
-    if commandStatus == 1: # this means that we had some trouble running tc!
-        reset_condition(device) # the trouble should be able to be fixed with removing all the previous setting
+    command_status = run_tc_command(command)
+    # if we have had some trouble setting tc, remove all the previous TC settings, and try setting tc again
+    if command_status == 1:
+        reset_condition(device)
         tqdm.write("reseting condition")
         retry_command_status = run_tc_command(command)
         if retry_command_status == 0:
             tqdm.write("reset tc command!")
         else:
-            tqdm.write("RESET FAILED")
+            tqdm.write("RESET FAILED") # if resetting tc does not work, we will keep track of the error
+    # applying the second tc command
     run_tc_command(APPLY_BANDWIDTH.format(DEVICE = device, BANDWIDTH = bandwidth, BURST = bandwidth, LIMIT = 2*bandwidth))
 
+"""
+Removing the previous TC settings
+"""
 def reset_condition(
     device: str, 
     ):
     run_tc_command(RESET_FORMAT.format(DEVICE = device))
 
+"""
+Apply the given TC command using subprocess
+Return 1 if there is some issue running TC
+Return 0 if TC runs successfully
+"""
 def run_tc_command(
     command: str,
-    
 ):
     if command:
         tqdm.write(f"commands are {command}")
@@ -70,39 +97,11 @@ def run_tc_command(
             return 1 # failed
         return 0 #success
 
-
-experiment_parameters = [
-    "browser",
-    "experimentID",
-    "experimentStartTime",
-    "netemParams", # TODO: think about better encoding
-    "httpVersion", 
-    "server",
-    "warmup",
-]
-
-timing_parameters = [ 
-    "startTime",
-    # "unloadEventStart",
-    # "unloadEventEnd",
-    "fetchStart",
-    "domainLookupStart",
-    "domainLookupEnd",
-    "connectStart", 
-    "secureConnectionStart",
-    "connectEnd", 
-    "requestStart", 
-    "responseStart", 
-    "responseEnd",
-    "domInteractive",  
-    "domContentLoadedEventStart", 
-    "domContentLoadedEventEnd", 
-    "domComplete", 
-    "loadEventStart",
-    "loadEventEnd",
-]
-parameters = timing_parameters + experiment_parameters
-
+"""
+Headers/columns of different tables in the sqlite database
+for details, please refer to the documentation of Schema
+https://docs.google.com/spreadsheets/d/13Ao_zlXyoTtynbOXBAuh_GHTQAvVtB0YMq-Z6y5Szjs/edit#gid=0
+"""
 big_table_fmt = {
     "schemaVer" : "TEXT",
     "experimentID" : "TEXT",
@@ -166,21 +165,29 @@ processes_fmt = {
     "commmand": "TEXT"
     }
 
+# the default output database
 out = "results/results.db"
 
-
+"""
+Set up the database in the output directory
+return the handle/reference of the database
+"""
 def setup_data_file_headers(
     out: str
 ):
+    # If this database is an previous database, directly return the reference.
+    # However, if the existing database is set up with different headers,
+    # we will run into error when try to write to the database
     if os.path.exists(out):
         return connect(out)
     
     # If directory doesn't exist, can't connect
-    # Don't check disk for in-memory database
+    # Create a new database
     if out != ":memory:":
-        os.makedirs(os.path.dirname(out),exist_ok = True)
+        os.makedirs(os.path.dirname(out), exist_ok = True)
 
-    # only if database doesn't exist 
+    # Create headers for new database
+    # Generate statements that creates and populates database tables
     big_table = ""
     for key in big_table_fmt.keys():
         big_table += f"{key} {big_table_fmt[key]}, "
@@ -193,11 +200,12 @@ def setup_data_file_headers(
     processes = ""
     for key in processes_fmt.keys():
         processes += f"{key} {processes_fmt[key]}, "
-    
     create_big_db = f"CREATE TABLE big_table ({big_table[:-2]});"
     create_monitoring_db = f"CREATE TABLE monitoring ({monitoring[:-2]});"
     create_timing_db = f"CREATE TABLE timings ({timings[:-2]})"
     create_processes_db = f"CREATE TABLE processes ({processes[:-2]})"
+
+    # Execute the statements generated above and set up headers for the tables
     database = connect(out)  
     database.execute(create_big_db)
     database.execute(create_monitoring_db)
@@ -207,35 +215,47 @@ def setup_data_file_headers(
     return database
 
 
-def write_data(data: json, csvFileName: str):
-    with open(csvFileName, 'a+', newline='\n') as outFile:
-        csvWriter = csv.DictWriter(outFile, fieldnames=parameters, extrasaction='ignore')
-        csvWriter.writerow(data)
-
-
+"""
+Write the given data in json to the big_table table in the given database
+"""
 def write_big_table_data(data: json, db: Connection):
     insert = f"INSERT INTO big_table VALUES ({ ('?,' * len(big_table_fmt))[:-1]})"
     db.execute(insert, data)
     db.commit()
 
-
+"""
+Write the given data in json to the timing table in the given database
+"""
 def write_timing_data(data: json, db: Connection):
     insert = f"INSERT INTO timings VALUES ({ ('?,' * len(timings_fmt))[:-1]})"
+    # if data does not include a key from the timing table header, eg: data does not include "server"
+    # write an empty string to the key as a placeholder, eg: "server": "";
     data_tuple = tuple([data[key] if key in data else "" for key in timings_fmt.keys()])
     db.execute(insert, data_tuple)
     db.commit()
 
-def write_monitoring_data(data_tuple: tuple):
+"""
+Given the name of the database, we first make an connection/reference to the database,
+then write the given data in json to the monitoring table of that database
+"""
+def write_monitoring_data(data_tuple: tuple, output_database_name: str):
     insert = f"INSERT INTO monitoring VALUES ({ ('?,' * len(monitoring_fmt))[:-1]})"
-    db = setup_data_file_headers(out)  
+    db = setup_data_file_headers(output_database_name)  
     db.execute(insert, data_tuple)
     db.commit()
 
-def write_processes_data(data_tuple: tuple):
+"""
+Given the name of the database, we first make an connection/reference to the database,
+then write the given data in json to the processes table of that database
+"""
+def write_processes_data(data_tuple: tuple, output_database_name: str):
     insert = f"INSERT INTO processes VALUES ({ ('?,' * len(processes_fmt))[:-1]})"
-    db = setup_data_file_headers(out)  
+    db = setup_data_file_headers(output_database_name)  
     db.execute(insert, data_tuple)
     db.commit()
 
+"""
+Get the current time in terms of year/month/day hour:minute:second
+"""
 def get_time():
     return datetime.now().strftime("%Y/%m/%d %H:%M:%S")
