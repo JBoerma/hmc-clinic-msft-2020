@@ -207,7 +207,7 @@ def run_sync_experiment(
                 
                 # end server monitoring 
                 if on_server(url=url):
-                    end_server_monitoring(url, ssh=ssh_client)
+                    end_server_monitoring(ssh=ssh_client)
 
 
 async def run_async_experiment(

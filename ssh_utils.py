@@ -100,6 +100,7 @@ def get_server_ips_dict():
 
 def on_server(url: str) -> bool:
     server_ips = get_server_ips_dict()
-    if url in [server_ips["public_ip"], server_ips["private_ip"]]:
+    if any(ip in url for ip in [server_ips["public_ip"], server_ips["private_ip"]]):
         return True
     return False
+
