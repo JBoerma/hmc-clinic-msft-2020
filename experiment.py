@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--json JSON] [--ports PORTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -13,6 +13,7 @@ Arguments:
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
     --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
+    --json JSON               JSON file of arguments
 
 Options:
     -h --help                 Show this screen 
@@ -131,9 +132,12 @@ class ResetTCOnExit:
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
+    # If JSON, merge arguments in - will overwrite overlapping arguments
+    if args['--json']:
+        json_args = json.loads(args['--json'])
+        args.update(json_args)
     device = args['--device']
     killer = ResetTCOnExit(device)
-
     conditions = args['--conditions']
     browsers = args['--browsers']
     url = args['--url']
