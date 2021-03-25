@@ -107,6 +107,3 @@ def on_server(url: str) -> bool:
         return True
     return False
 
-
-def get_server_private_ip():
-    return get_server_ips_dict()["private_ip"]

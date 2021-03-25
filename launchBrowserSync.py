@@ -193,8 +193,6 @@ def get_results_sync(
         # ie: localhost, server ip address
         # then we can test specified h3 implementation or payload
         url = url + port + "/" + payload + ".html"
-    logger.debug(f"Navigating to url: {url}")
-    
     # warm up the browser
     warmup_if_specified_sync(page, url, warmup)
     # attempt to navigate to the url

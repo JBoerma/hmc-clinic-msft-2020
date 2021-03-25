@@ -8,12 +8,11 @@ Arguments:
     --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
     --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
-    --url URL                 URL to access
+    --url URL                 URL to access [default: https://localhost]
     --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 1kb 10kb 100kb]
-    --endpoint ENDPOINTS      DOES NOTHING RN Endpoint to hit. If specified, will ignore url. (server facebook google cloudflare)
+    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
 
 Options:
     -h --help                 Show this screen 
@@ -40,7 +39,7 @@ import signal
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
-from ssh_utils import start_server_monitoring, end_server_monitoring, on_server, get_server_private_ip
+from ssh_utils import start_server_monitoring, end_server_monitoring, on_server
 
 # Thanks to https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
 import logging
@@ -132,8 +131,6 @@ class ResetTCOnExit:
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
-    logger.info(args)
-
     device = args['--device']
     killer = ResetTCOnExit(device)
 
@@ -155,22 +152,6 @@ def main():
     #    disable_caching=disable_caching,
     #    url            =url,
     # )
-
-    # Set up public endpoints. TODO FIX THIS. THIS IS MINIMUM WORKING EX.
-    endpoint: str = args['--endpoint']
-    endpoints_to_url = {
-        "server": get_server_private_ip(),
-        "facebook": "https://scontent.xx.fbcdn.net/speedtest-100KB",
-        "google": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/logo_android_auto_color_2x_web_512dp.max-600x600.png",
-        "cloudflare": "https://www.cloudflare.com/resources/images/slt3lc6tev37/4jZWUf5vPGcuekUAkugiGm/750cf9fc220ff5007d3f703ddd38d3c0/quic-hero.png"
-    }
-    if not url:
-        if not endpoint:
-            logger.error("Need to specify a url or an endpoint. url has precedence.")
-
-        url = endpoints_to_url[endpoint]
-        if endpoint != "server":
-            ports = [""] # HACK - need to fix
     
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
@@ -191,8 +172,8 @@ def main():
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads=        payloads,
-            qlog=            qlog,
+            payloads =       payloads,
+            qlog=            qlog 
         )
     else:
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
@@ -234,14 +215,13 @@ def run_sync_experiment(
     out:             str,
     disable_caching: bool,
     warmup:          bool,
-    qlog:            bool,
+    qlog:             bool,
     database, 
     payloads:        List[str],
 ):
     with sync_playwright() as p:
             for condition in tqdm(conditions, desc="Experiments"):
                 experiment_id = int(time.time()) # ensures no repeats
-                logger.debug(f"Experiment ID: {experiment_id}")
 
                 # Start system monitoring
                 global util_process
@@ -395,8 +375,7 @@ async def run_async_experiment(
 async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
     for item in outstanding:
         (task, combo) = item
-        # TODO - server_port is unused. Is this bc we don't have a column for it?
-        condition, server_port, browser_name, h_version, payload = combo
+        condition, server_port, browser_name, h_version, payload = combo 
         if task.done():
             (results, browser) = task.result()
             results["experimentID"] = experiment_id
@@ -408,7 +387,7 @@ async def clean_outstanding(outstanding: List, warmup: bool, database, experimen
             write_timing_data(results, database)
             outstanding.remove(item)
             asyncio.create_task(browser.close())
-    await asyncio.sleep(1)
+    await asyncio.sleep(1) 
 
 
 if __name__ == "__main__":
