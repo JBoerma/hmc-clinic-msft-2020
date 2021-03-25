@@ -129,6 +129,25 @@ class ResetTCOnExit:
                 process.kill()
         sys.exit()
 
+def handle_endpoint(url, ports, endpoint, payloads):
+     # Set up public endpoints. TODO FIX THIS. THIS IS MINIMUM WORKING EX.
+    with open("external.json") as external_json:
+        endpoint_urls = json.load(external_json)
+        if not url:
+            if not endpoint:
+                logger.error("Need to specify a url or an endpoint. url has precedence.")
+                sys.exit()
+
+            try:
+                url = endpoint_urls[endpoint][payloads[0]]
+            except KeyError: 
+                logger.exception(f"The endpoint:payload combination {endpoint}:{payloads[0]} does not exist")
+                sys.exit()
+
+            if endpoint != "server":
+                ports = [""] # HACK - need to fix
+    return url, ports
+
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
@@ -156,21 +175,9 @@ def main():
     #    url            =url,
     # )
 
-    # Set up public endpoints. TODO FIX THIS. THIS IS MINIMUM WORKING EX.
+    # ENDPOINT takes precedence over url
     endpoint: str = args['--endpoint']
-    endpoints_to_url = {
-        "server": get_server_private_ip(),
-        "facebook": "https://scontent.xx.fbcdn.net/speedtest-100KB",
-        "google": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/logo_android_auto_color_2x_web_512dp.max-600x600.png",
-        "cloudflare": "https://www.cloudflare.com/resources/images/slt3lc6tev37/4jZWUf5vPGcuekUAkugiGm/750cf9fc220ff5007d3f703ddd38d3c0/quic-hero.png"
-    }
-    if not url:
-        if not endpoint:
-            logger.error("Need to specify a url or an endpoint. url has precedence.")
-
-        url = endpoints_to_url[endpoint]
-        if endpoint != "server":
-            ports = [""] # HACK - need to fix
+    url, ports = handle_endpoint(url, ports, endpoint, payloads)
     
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
