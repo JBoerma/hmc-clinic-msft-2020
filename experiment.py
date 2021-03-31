@@ -1,14 +1,14 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [--endpoints ENDPOINTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--urls URLS ...] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [--endpoints ENDPOINTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
     --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
     --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
-    --url URL                 URL to access
+    --urls URLS               URL to access
     --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
@@ -159,7 +159,11 @@ def main():
 
     conditions = args['--conditions']
     browsers = args['--browsers']
-    url = args['--url']
+    urls = args['--urls']
+    url = None
+    if urls: 
+        url = urls[0]
+
     runs = int(args['--runs'])
     out = args['--out']
     disable_caching = args['--disable_caching']
