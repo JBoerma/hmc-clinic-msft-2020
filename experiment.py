@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [--endpoints ENDPOINTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -12,8 +12,8 @@ Arguments:
     --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 1kb 10kb 100kb]
-    --endpoint ENDPOINTS      DOES NOTHING RN Endpoint to hit. If specified, will ignore url. (server facebook google cloudflare)
+    --payloads PAYLOADS       List of sizes of the requsting payload (1kb, 10kb, 100kb) [default: 1kb 10kb 100kb]
+    --endpoints ENDPOINTS     Endpoint to hit. (server-nginx server-nginx-quiche server-caddy server-openlitespeed facebook google cloudflare)
 
 Options:
     -h --help                 Show this screen 
@@ -41,6 +41,7 @@ from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
 from ssh_utils import start_server_monitoring, end_server_monitoring, on_server, get_server_private_ip
+from endpoint import Endpoint
 
 # Thanks to https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
 import logging
@@ -176,29 +177,33 @@ def main():
     # )
 
     # ENDPOINT takes precedence over url
-    endpoint: str = args['--endpoint']
-    url, ports = handle_endpoint(url, ports, endpoint, payloads)
+    endpt: str = "" 
+    if not url: 
+        endpt = args['--endpoints'][0]
+    # url, ports = handle_endpoint(url, ports, endpoint, payloads)
+    # TODO - pass list of endpoints down into run_sync_experiment
+    endpoint = Endpoint(url, endpt, payloads[0])
     
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
-
+    logger.warning("Be aware that only the first of urls, ports, and runs is used.")
     if not run_async:
         run_sync_experiment(
             schema_version=  "0",
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    ports,
+            server_ports=    [endpoint.get_port()],
             conditions=      conditions,
             browsers=        browsers,
-            url=             url,
+            url=             endpoint.get_url(),
             runs=            runs,
             out=             out,
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads=        payloads,
+            payloads=        [endpoint.get_payload()],
             qlog=            qlog,
         )
     else:
