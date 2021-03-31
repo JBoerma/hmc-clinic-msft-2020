@@ -130,24 +130,6 @@ class ResetTCOnExit:
                 process.kill()
         sys.exit()
 
-def handle_endpoint(url, ports, endpoint, payloads):
-     # Set up public endpoints. TODO FIX THIS. THIS IS MINIMUM WORKING EX.
-    with open("external.json") as external_json:
-        endpoint_urls = json.load(external_json)
-        if not url:
-            if not endpoint:
-                logger.error("Need to specify a url or an endpoint. url has precedence.")
-                sys.exit()
-
-            try:
-                url = endpoint_urls[endpoint][payloads[0]]
-            except KeyError: 
-                logger.exception(f"The endpoint:payload combination {endpoint}:{payloads[0]} does not exist")
-                sys.exit()
-
-            if endpoint != "server":
-                ports = [""] # HACK - need to fix
-    return url, ports
 
 def main():   
     # Process args
@@ -201,7 +183,6 @@ def main():
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
-    logger.warning("Be aware that only the first of urls or payloads/endpoints is used.")
     if not run_async:
         run_sync_experiment(
             schema_version=  "0",
@@ -282,8 +263,8 @@ def run_sync_experiment(
                     ssh_client = start_server_monitoring(experiment_id, str(out))
 
                 params = [(h3, browser) 
-                                for browser in browsers 
-                                for h3 in [True, False]
+                    for browser in browsers 
+                    for h3 in [True, False]
                 ] * runs
                 random.shuffle(params)
 
