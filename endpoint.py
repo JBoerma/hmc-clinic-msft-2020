@@ -9,8 +9,8 @@ from ssh_utils import get_server_private_ip
 
 
 endpoint_to_port = {
-    "server-nginx": "443",
-    "server-nginx-quiche": "444",
+    "server-nginx-quiche": "443",
+    "server-nginx": "444",
     "server-caddy": "445", 
     "server-openlitespeed": "446"
 }
