@@ -68,15 +68,15 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.INFO)
 consoleHandler.setFormatter(formatter)
-# file hanlder logs DEBUG, INFO, and above to file
-log_file = f"{time.time()}.log"
+# file handler logs DEBUG, INFO, and above to file
+log_time = time.time()
+log_file = f"logs/{log_time}.log"
 fileHandler = logging.FileHandler(log_file)
 fileHandler.setLevel(logging.DEBUG)
 fileHandler.setFormatter(formatter)
 # add handlers to logger
 logger.addHandler(consoleHandler)
 logger.addHandler(fileHandler)
-
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -156,7 +156,11 @@ def main():
     #    disable_caching=disable_caching,
     #    url            =url,
     # )
-    
+
+    # save args to JSON file
+    with open(f"args/{log_time}.json", "w") as outfile: 
+        json.dump(args, outfile)
+
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
