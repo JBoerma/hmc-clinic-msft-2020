@@ -89,3 +89,6 @@ class Endpoint():
 
     def get_port(self) -> str: 
         return self.port
+
+    def get_endpoint(self) -> str:
+        return self.endpoint

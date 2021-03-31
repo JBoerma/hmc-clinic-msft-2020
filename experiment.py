@@ -208,19 +208,17 @@ def main():
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    [endpts[0].get_port()],
+            endpoints=       endpts,
             conditions=      conditions,
             browsers=        browsers,
-            url=             endpts[0].get_url(),
             runs=            runs,
             out=             out,
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads=        [endpts[0].get_payload()],
             qlog=            qlog,
         )
-    else:
+    else: # TODO this is broken
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
             schema_version=  "0",
             experiment_id=   str(int(time.time())),
@@ -252,20 +250,23 @@ def run_sync_experiment(
     git_hash:        str, 
     server_version:  str, 
     device:          str, 
-    server_ports:    List[str],
+    endpoints:       List[Endpoint],
     conditions:      List[str], 
     browsers:        List[str],
-    url:             str,
     runs:            int, 
     out:             str,
     disable_caching: bool,
     warmup:          bool,
     qlog:            bool,
     database, 
-    payloads:        List[str],
 ):
     with sync_playwright() as p:
+        # TODO randomize endpoint and condition. There is no reason to not randomize them.
+        for endpoint in tqdm(endpoints, desc="Endpoints"): 
+            logger.info(f"URL: {endpoint.get_url()}")
+            url = endpoint.get_url()
             for condition in tqdm(conditions, desc="Experiments"):
+                logger.info(f"Condition: {condition}")
                 experiment_id = int(time.time()) # ensures no repeats
                 logger.debug(f"Experiment ID: {experiment_id}")
 
@@ -277,24 +278,23 @@ def run_sync_experiment(
 
                 # Start server monitoring if accessing our own server
                 ssh_client = None
-                if on_server(url=url):
+                if endpoint.is_on_server():
                     ssh_client = start_server_monitoring(experiment_id, str(out))
 
-                whenRunH3 = [(h3, port, payload, browser) 
+                params = [(h3, browser) 
                                 for browser in browsers 
-                                for payload in payloads 
-                                for port in server_ports * runs 
                                 for h3 in [True, False]
-                            ]
-                random.shuffle(whenRunH3)
+                ] * runs
+                random.shuffle(params)
+
                 # run the same experiment multiple times over h3/h2
-                for (useH3, whichServer, payload, browser) in tqdm(whenRunH3):
-                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup, qlog, experiment_id)
+                for (useH3, browser) in tqdm(params, desc="Individual Runs"):
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, endpoint, warmup, qlog, experiment_id)
                     results["experimentID"] = experiment_id
                     results["httpVersion"] = "h3" if useH3 else "h2" 
                     results["warmup"] = warmup
                     results["browser"] = browser 
-                    results["payloadSize"] = payload 
+                    results["payloadSize"] = endpoint.get_payload() 
                     results["netemParams"] = condition
                     # TODO: currently missing server, add server
                     write_timing_data(results, database)
