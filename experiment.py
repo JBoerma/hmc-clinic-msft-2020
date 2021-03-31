@@ -1,7 +1,7 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--urls URLS ...] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--ports PORTS ...] [--endpoints ENDPOINTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--urls URLS ...] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS ...] [--ports PORTS ...] [--endpoints ENDPOINTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
@@ -159,10 +159,6 @@ def main():
 
     conditions = args['--conditions']
     browsers = args['--browsers']
-    urls = args['--urls']
-    url = None
-    if urls: 
-        url = urls[0]
 
     runs = int(args['--runs'])
     out = args['--out']
@@ -172,7 +168,6 @@ def main():
     ports = args['--ports']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     run_async = args['--async']
-    payloads = args['--payloads'].split()
     qlog = args['--qlog']
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
@@ -180,34 +175,49 @@ def main():
     #    url            =url,
     # )
 
-    # ENDPOINT takes precedence over url
-    endpt: str = "" 
-    if not url: 
-        endpt = args['--endpoints'][0]
-    # url, ports = handle_endpoint(url, ports, endpoint, payloads)
-    # TODO - pass list of endpoints down into run_sync_experiment
-    endpoint = Endpoint(url, endpt, payloads[0])
+    # Handle urls, endpoints, payloads
+    urls = args['--urls']
+    payloads = args['--payloads']
+    endpoints = args['--endpoints']
+    endpts: List[Endpoint] = []
+    # Each url gets its own endpoint. Exceptions are handled silently - 
+    # the script will try to continue with whatever works
+    for url in urls:
+        try: 
+            endpts.append(Endpoint(url, None, None))
+        except Exception: 
+            logger.exception(f"Error in creating endpoint for url: {url}")
+    # Each payload/endpoint combination also gets its own
+    for (endpoint, payload) in itertools.product(endpoints, payloads):
+        try: 
+            endpts.append(Endpoint(None, endpoint, payload))
+        except Exception: 
+            logger.exception(f"Error in creating endpoint for endpoint - payload: {endpoint} - {payload}")
+    
+    if len(endpts) == 0: 
+        logger.error("There are no valid endpoints. Aborting...")
+        sys.exit()
     
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
 
-    logger.warning("Be aware that only the first of urls, ports, and runs is used.")
+    logger.warning("Be aware that only the first of urls or payloads/endpoints is used.")
     if not run_async:
         run_sync_experiment(
             schema_version=  "0",
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    [endpoint.get_port()],
+            server_ports=    [endpts[0].get_port()],
             conditions=      conditions,
             browsers=        browsers,
-            url=             endpoint.get_url(),
+            url=             endpts[0].get_url(),
             runs=            runs,
             out=             out,
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads=        [endpoint.get_payload()],
+            payloads=        [endpts[0].get_payload()],
             qlog=            qlog,
         )
     else:
