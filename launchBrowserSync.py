@@ -5,6 +5,7 @@ from tqdm import tqdm
 import re, os, time, glob
 
 from experiment_utils import reset_condition, apply_condition
+from endpoint import Endpoint
 
 import logging
 logger = logging.getLogger('__main__.' + __name__)
@@ -23,15 +24,13 @@ def do_single_experiment_sync(
     pw_instance: "SyncPlaywrightContextManager", 
     browser_type: str, 
     h3: bool,
-    url: str,
-    port: str,
-    payload: str,
+    endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
     expnt_id: int,
 ) -> json:
     apply_condition(device, condition)
-    results = launch_browser_sync(pw_instance, browser_type, url, h3, port, payload, warmup, qlog, expnt_id)
+    results = launch_browser_sync(pw_instance, browser_type, h3, endpoint, warmup, qlog, expnt_id)
     reset_condition(device)
 
     return results
@@ -42,10 +41,8 @@ Invoke the specified browser launch functions, return the navigation timing data
 def launch_browser_sync(
     pw_instance: "SyncPlaywrightContextManager", 
     browser_type: str,
-    url: str, 
     h3: bool,
-    port: str,
-    payload: str,
+    endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
     expnt_id: int
@@ -53,22 +50,28 @@ def launch_browser_sync(
     qlog_dir = f"{os.getcwd()}/results/qlogs/"
     if not os.path.exists(qlog_dir):
         os.makedirs(qlog_dir, exist_ok = True)
+
+    browser = None 
     if browser_type  ==  "firefox":
-        return launch_firefox_sync(pw_instance, url, h3, port, payload, warmup, qlog, expnt_id)
+        browser = launch_firefox_sync(pw_instance, h3, endpoint, warmup, qlog, expnt_id)
     elif browser_type  ==  "chromium":
-        return launch_chromium_sync(pw_instance, url, h3, port, payload, warmup, qlog, expnt_id)
+        browser = launch_chromium_sync(pw_instance, h3, endpoint, warmup, qlog, expnt_id)
     elif browser_type  ==  "edge":
-        return launch_edge_sync(pw_instance, url, h3, port, payload, warmup, qlog, expnt_id)
+        browser = launch_edge_sync(pw_instance, h3, endpoint, warmup, qlog, expnt_id)
+    
+    # if browser fails to launch, stop this request and write to the database
+    if not browser: 
+        return {"error": "launch_browser_failed"}
+
+    return get_results_sync(browser, h3, endpoint, warmup)
 
 """
 Launch the firefox browser
 """
 def launch_firefox_sync(
     pw_instance: "SyncPlaywrightContextManager", 
-    url: str, 
     h3: bool,
-    port: str,
-    payload: str,
+    endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
     expnt_id: int,
@@ -81,13 +84,16 @@ def launch_firefox_sync(
         if qlog:
             firefox_prefs["network.http.http3.enable_qlog"] = True  # enable qlog
             qlog_path = set_up_qlogs_dir(qlog_dir, expnt_id)
-        domain = get_domain(url)
+        domain = endpoint.get_domain()
         firefox_prefs["network.http.http3.enabled"] = True # enable h3 protocol
         # the openlightspeed server works with a different h3 version than the rest of the servers
-        if '446' in port:
-            firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-27={port.split('/')[0]}"
-        else:
-            firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-29={port.split('/')[0]}"
+
+        port = endpoint.get_port()
+        h3_version = "29"
+        if endpoint.get_endpoint() == "server-openlitespeed":
+            h3_version = "27"
+
+        firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-{h3_version}=:{port}"       
     # attempt to launch browser
     try:
         browser = pw_instance.firefox.launch(
@@ -98,20 +104,18 @@ def launch_firefox_sync(
             # change qlogś name so that it will be saved to results/qlogs/firefox/[experimentID]
             for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
                 os.rename(qlog, f"{qlog_path}/{time.time()}.qlog")
-    except:  # if browser fails to launch, stop this request and write to the database
-        return {"error": "launch_browser_failed"}
-    # if browser successfully launches, get the navigation timing result
-    return get_results_sync(browser, url, h3, port, payload, warmup)
+        return browser
+    except:  
+        logger.exception("Browser failed to launch")
+        return None
 
 """
 Launch the chromium browser
 """
 def launch_chromium_sync(
     pw_instance: "SyncPlaywrightContextManager", 
-    url: str, 
     h3: bool,
-    port: str,
-    payload: str,
+    endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
     expnt_id: int,
@@ -119,8 +123,14 @@ def launch_chromium_sync(
     chromium_args = []
     if h3:
         # set up chromium arguments for enabling h3, qlog, h3 version
-        domain = get_domain(url)
-        chromium_args = ["--enable-quic", f"--origin-to-force-quic-on={domain}:443", "--quic-version=h3-29"]
+        chromium_args = ["--enable-quic", "--quic-version=h3-29"]
+        if endpoint.is_on_server(): 
+            domain = endpoint.get_domain()
+            port = endpoint.get_port()
+            chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
+        else: 
+            pass # TODO - do we need to force quic on other endpoints?
+        
         if qlog:
             # set up a directory results/qlogs/chromium/[experimentID] to save qlog
             qlog_dir = f"{os.getcwd()}/results/qlogs/chromium"
@@ -128,32 +138,36 @@ def launch_chromium_sync(
             chromium_args.append(f"--log-net-log={qlog_path}/{time.time()}.json")
     # attempt to launch browser
     try:
-        browser =  pw_instance.chromium.launch(
+        browser = pw_instance.chromium.launch(
             headless=True,
             args=chromium_args,
         )
-    except:  # if browser fails to launch, stop this request and write to the database
-        return {"error":"launch_browser_failed"}
-    # if browser successfully launches, get the navigation timing result
-    return get_results_sync(browser, url, h3, port, payload, warmup)
+        return browser
+    except:  
+        logger.exception("Browser failed to launch")
+        return None
 
 """
 Launch the edge browser
 """
 def launch_edge_sync(
     pw_instance: "SyncPlaywrightContextManager", 
-    url: str, 
     h3: bool,
-    port: str,
-    payload: str,
+    endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
     expnt_id: int,
 ) -> json:
     edge_args = []
     if (h3) :
-        domain = get_domain(url)
-        edge_args = ["--enable-quic", f"--origin-to-force-quic-on={domain}:443", "--quic-version=h3-29"]
+        chromium_args = ["--enable-quic", "--quic-version=h3-29"]
+        if endpoint.is_on_server(): 
+            domain = endpoint.get_domain()
+            port = endpoint.get_port()
+            chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
+        else: 
+            pass # TODO - do we need to force quic on other endpoints?
+        
         if qlog:
             qlog_dir = f"{os.getcwd()}/results/logs/edge"
             qlog_path = set_up_qlogs_dir(qlog_dir, expnt_id)
@@ -165,10 +179,10 @@ def launch_edge_sync(
             executable_path='/opt/microsoft/msedge-dev/msedge',
             args=edge_args,
         )
-    except:  # if browser fails to launch, stop this request and write to the database
-        return {"error":"launch_browser_failed"}
-    # if browser successfully launches, get the navigation timing result
-    return get_results_sync(browser, url, h3, port, payload, warmup)
+        return browser
+    except: 
+        logger.exception("Browser failed to launch")
+        return None
     
 """
 Get the navigation timing result, after going to the specified url, and retriving the desired file
@@ -176,23 +190,16 @@ from the server
 """
 def get_results_sync(
     browser,
-    url: str, 
     h3: bool,
-    port: str,
-    payload: str,
+    endpoint: Endpoint,
     warmup: bool,
 ) -> json:
     # set up the browser context and page
     context = browser.new_context()
     page = context.new_page()
-    logger.debug(f"sync 131 {payload}")
-    # use regular expression to check the format of the url
-    regex = re.compile(r"\.\D+")
-    if not regex.findall(url):
-        # if url is not `xxx.xxx`, then it will be to our servers
-        # ie: localhost, server ip address
-        # then we can test specified h3 implementation or payload
-        url = url + port + "/" + payload + ".html"
+    url = endpoint.get_url()
+    logger.debug(f"Navigating to url: {url}")
+    
     # warm up the browser
     warmup_if_specified_sync(page, url, warmup)
     # attempt to navigate to the url
