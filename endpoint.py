@@ -32,11 +32,11 @@ def get_external_json_dict():
 
 
 class Endpoint():
-    url = None
-    domain = None
-    port = None
-    payload = None 
-    endpoint = None
+    url = ""
+    domain = ""
+    port = ""
+    payload = "" 
+    endpoint = ""
     on_server: bool = False
     def __init__(self, url :str, endpoint :str, payload :str): 
         if url: 
