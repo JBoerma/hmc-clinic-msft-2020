@@ -1,0 +1,35 @@
+{
+    "facebook": {
+        "100kb": "https://scontent.xx.fbcdn.net/speedtest-100KB",
+        "1mb": "https://scontent.xx.fbcdn.net/speedtest-1MB",
+        "5mb": "https://scontent.xx.fbcdn.net/speedtest-5MB",
+        "small": "https://about.instagram.com/sitemap/",
+        "medium": "https://www.facebook.com/",
+        "large": "https://www.facebook.com/business/marketing-partners/"
+    },
+    "google": {
+        "100kb": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/logo_android_auto_color_2x_web_512dp.max-600x600.png",
+        "1mb": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/logo_accessibility_color_192dp.max-2800x2800.png",
+        "5mb": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/Google-cafe.max-2800x2800.jpg",
+        "small": "https://www.google.com",
+        "medium": "https://careers.google.com/teams/",
+        "large": "https://store.google.com/us/category/phones?hl=en-US"
+    },
+    "cloudflare": {
+        "100kb": "https://www.cloudflare.com/resources/images/slt3lc6tev37/4jZWUf5vPGcuekUAkugiGm/750cf9fc220ff5007d3f703ddd38d3c0/quic-hero.png",
+        "1mb": "https://cloudflare-quic.com/1MB.png",
+        "5mb": "https://cloudflare-quic.com/5MB.png",
+        "small": "https://cloudflare.tv/schedule?start=2020-11-22T05%3A00%3A00.000Z&end=2020-11-29T05%3A00%3A00.000Z/",
+        "medium": "https://www.cloudflare.com/logo/",
+        "large": "https://blog.cloudflare.com/http-3-vs-http-2/"
+    },
+    "local": {
+        "100kb": "https://127.0.0.1:30000/102400",
+        "1mb": "https://127.0.0.1:30000/1048576",
+        "5mb": "https://127.0.0.1:30000/5242880"
+    },
+    "brown": {
+        "100kb": "https://quic.cs.brown.edu:30000/102400",
+        "200kb": "https://quic.cs.brown.edu:30000/quic-hero.png"
+    }
+}

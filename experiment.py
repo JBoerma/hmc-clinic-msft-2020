@@ -1,19 +1,20 @@
 """QUIC Experiment Harness
 
 Usage:
-    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--url URL] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS] [--json JSON] [--ports PORTS ...] [options]
+    experiment.py [--device DEVICE] [--conditions CONDITIONS ...] [--browsers BROWSERS ...] [--urls URLS ...] [--runs RUNS] [--out OUT] [--throughput THROUGHPUT] [--payloads PAYLOADS ...] [--ports PORTS ...] [--endpoints ENDPOINTS ...] [options]
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
     --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
     --browsers BROWSERS       List of browsers to test [default: chromium edge]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
-    --url URL                 URL to access [default: https://localhost]
+    --urls URLS               URL to access
     --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
-    --payloads PAYLOADS       List of sizes of the requsting payload [default: 100kb 1kb 10kb]
     --json JSON               JSON file of arguments
+    --payloads PAYLOADS       List of sizes of the requsting payload (1kb, 10kb, 100kb) [default: 1kb 10kb 100kb]
+    --endpoints ENDPOINTS     Endpoint to hit. (server-nginx server-nginx-quiche server-caddy server-openlitespeed facebook google cloudflare)
 
 Options:
     -h --help                 Show this screen 
@@ -40,7 +41,8 @@ import signal
 from launchBrowserAsync import launch_browser_async, get_results_async
 from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
-from ssh_utils import start_server_monitoring, end_server_monitoring, on_server
+from ssh_utils import start_server_monitoring, end_server_monitoring, on_server, get_server_private_ip
+from endpoint import Endpoint
 
 # Thanks to https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
 import logging
@@ -129,6 +131,7 @@ class ResetTCOnExit:
                 process.kill()
         sys.exit()
 
+
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
@@ -136,11 +139,13 @@ def main():
     if args['--json']:
         json_args = json.loads(args['--json'])
         args.update(json_args)
+    logger.info(args)
+
     device = args['--device']
     killer = ResetTCOnExit(device)
     conditions = args['--conditions']
     browsers = args['--browsers']
-    url = args['--url']
+
     runs = int(args['--runs'])
     out = args['--out']
     disable_caching = args['--disable_caching']
@@ -149,21 +154,42 @@ def main():
     ports = args['--ports']
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     run_async = args['--async']
-    payloads = args['--payloads'].split()
     qlog = args['--qlog']
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
     #    disable_caching=disable_caching,
     #    url            =url,
     # )
+    # Handle urls, endpoints, payloads
+    urls = args['--urls']
+    payloads = args['--payloads']
+    endpoints = args['--endpoints']
 
     # save args to JSON file
     with open(f"args/{log_time}.json", "w") as outfile: 
         json.dump(args, outfile)
 
+    endpts: List[Endpoint] = []
+    # Each url gets its own endpoint. Exceptions are handled silently - 
+    # the script will try to continue with whatever works
+    for url in urls:
+        try: 
+            endpts.append(Endpoint(url, None, None))
+        except Exception: 
+            logger.exception(f"Error in creating endpoint for url: {url}")
+    # Each payload/endpoint combination also gets its own
+    for (endpoint, payload) in itertools.product(endpoints, payloads):
+        try: 
+            endpts.append(Endpoint(None, endpoint, payload))
+        except Exception: 
+            logger.exception(f"Error in creating endpoint for endpoint - payload: {endpoint} - {payload}")
+    
+    if len(endpts) == 0: 
+        logger.error("There are no valid endpoints. Aborting...")
+        sys.exit()
+    
     # Setup data file headers  
     database = setup_data_file_headers(out=out)
-
 
     if not run_async:
         run_sync_experiment(
@@ -171,19 +197,17 @@ def main():
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    ports,
+            endpoints=       endpts,
             conditions=      conditions,
             browsers=        browsers,
-            url=             url,
             runs=            runs,
             out=             out,
             disable_caching= disable_caching,
             warmup=          warmup_connection,
             database=        database,
-            payloads =       payloads,
-            qlog=            qlog 
+            qlog=            qlog,
         )
-    else:
+    else: # TODO this is broken
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
             schema_version=  "0",
             experiment_id=   str(int(time.time())),
@@ -215,21 +239,25 @@ def run_sync_experiment(
     git_hash:        str, 
     server_version:  str, 
     device:          str, 
-    server_ports:    List[str],
+    endpoints:       List[Endpoint],
     conditions:      List[str], 
     browsers:        List[str],
-    url:             str,
     runs:            int, 
     out:             str,
     disable_caching: bool,
     warmup:          bool,
-    qlog:             bool,
+    qlog:            bool,
     database, 
-    payloads:        List[str],
 ):
     with sync_playwright() as p:
+        # TODO randomize endpoint and condition. There is no reason to not randomize them.
+        for endpoint in tqdm(endpoints, desc="Endpoints"): 
+            logger.info(f"URL: {endpoint.get_url()}")
+            url = endpoint.get_url()
             for condition in tqdm(conditions, desc="Experiments"):
+                logger.info(f"Condition: {condition}")
                 experiment_id = int(time.time()) # ensures no repeats
+                logger.debug(f"Experiment ID: {experiment_id}")
 
                 # Start system monitoring
                 global util_process
@@ -239,24 +267,23 @@ def run_sync_experiment(
 
                 # Start server monitoring if accessing our own server
                 ssh_client = None
-                if on_server(url=url):
+                if endpoint.is_on_server():
                     ssh_client = start_server_monitoring(experiment_id, str(out))
 
-                whenRunH3 = [(h3, port, payload, browser) 
-                                for browser in browsers 
-                                for payload in payloads 
-                                for port in server_ports * runs 
-                                for h3 in [True, False]
-                            ]
-                random.shuffle(whenRunH3)
+                params = [(h3, browser) 
+                    for browser in browsers 
+                    for h3 in [True, False]
+                ] * runs
+                random.shuffle(params)
+
                 # run the same experiment multiple times over h3/h2
-                for (useH3, whichServer, payload, browser) in tqdm(whenRunH3):
-                    results = do_single_experiment_sync(condition, device, p, browser, useH3, url, whichServer, payload, warmup, qlog, experiment_id)
+                for (useH3, browser) in tqdm(params, desc="Individual Runs"):
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, endpoint, warmup, qlog, experiment_id)
                     results["experimentID"] = experiment_id
                     results["httpVersion"] = "h3" if useH3 else "h2" 
                     results["warmup"] = warmup
                     results["browser"] = browser 
-                    results["payloadSize"] = payload 
+                    results["payloadSize"] = endpoint.get_payload() 
                     results["netemParams"] = condition
                     # TODO: currently missing server, add server
                     write_timing_data(results, database)
@@ -383,7 +410,8 @@ async def run_async_experiment(
 async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
     for item in outstanding:
         (task, combo) = item
-        condition, server_port, browser_name, h_version, payload = combo 
+        # TODO - server_port is unused. Is this bc we don't have a column for it?
+        condition, server_port, browser_name, h_version, payload = combo
         if task.done():
             (results, browser) = task.result()
             results["experimentID"] = experiment_id
@@ -395,7 +423,7 @@ async def clean_outstanding(outstanding: List, warmup: bool, database, experimen
             write_timing_data(results, database)
             outstanding.remove(item)
             asyncio.create_task(browser.close())
-    await asyncio.sleep(1) 
+    await asyncio.sleep(1)
 
 
 if __name__ == "__main__":
