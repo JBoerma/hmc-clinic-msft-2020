@@ -72,7 +72,7 @@ consoleHandler.setLevel(logging.INFO)
 consoleHandler.setFormatter(formatter)
 # file handler logs DEBUG, INFO, and above to file
 log_time = time.time()
-log_file = f"logs/{log_time}.log"
+log_file = f"{log_time}.log"
 fileHandler = logging.FileHandler(log_file)
 fileHandler.setLevel(logging.DEBUG)
 fileHandler.setFormatter(formatter)
@@ -166,7 +166,7 @@ def main():
     endpoints = args['--endpoints']
 
     # save args to JSON file
-    with open(f"args/{log_time}.json", "w") as outfile: 
+    with open(f"{log_time}_args.json", "w") as outfile: 
         json.dump(args, outfile)
 
     endpts: List[Endpoint] = []
