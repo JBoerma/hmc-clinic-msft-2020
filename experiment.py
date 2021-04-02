@@ -12,6 +12,7 @@ Arguments:
     --runs RUNS               Number of runs in the experiment [default: 100]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
+    --json JSON               JSON file of arguments
     --payloads PAYLOADS       List of sizes of the requsting payload (1kb, 10kb, 100kb) [default: 1kb 10kb 100kb]
     --endpoints ENDPOINTS     Endpoint to hit. (server-nginx server-nginx-quiche server-caddy server-openlitespeed facebook google cloudflare)
 
@@ -69,15 +70,15 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
 consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.INFO)
 consoleHandler.setFormatter(formatter)
-# file hanlder logs DEBUG, INFO, and above to file
-log_file = f"{time.time()}.log"
+# file handler logs DEBUG, INFO, and above to file
+log_time = time.time()
+log_file = f"{log_time}.log"
 fileHandler = logging.FileHandler(log_file)
 fileHandler.setLevel(logging.DEBUG)
 fileHandler.setFormatter(formatter)
 # add handlers to logger
 logger.addHandler(consoleHandler)
 logger.addHandler(fileHandler)
-
 
 # generated command line code
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
@@ -134,11 +135,14 @@ class ResetTCOnExit:
 def main():   
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
+    # If JSON, merge arguments in - will overwrite overlapping arguments
+    if args['--json']:
+        json_args = json.loads(args['--json'])
+        args.update(json_args)
     logger.info(args)
 
     device = args['--device']
     killer = ResetTCOnExit(device)
-
     conditions = args['--conditions']
     browsers = args['--browsers']
 
@@ -156,11 +160,15 @@ def main():
     #    disable_caching=disable_caching,
     #    url            =url,
     # )
-
     # Handle urls, endpoints, payloads
     urls = args['--urls']
     payloads = args['--payloads']
     endpoints = args['--endpoints']
+
+    # save args to JSON file
+    with open(f"{log_time}_args.json", "w") as outfile: 
+        json.dump(args, outfile)
+
     endpts: List[Endpoint] = []
     # Each url gets its own endpoint. Exceptions are handled silently - 
     # the script will try to continue with whatever works
