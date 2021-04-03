@@ -22,6 +22,7 @@ Options:
     --warmup                  Warms up connection
     --async                   Run experiment asynchronously
     --qlog                    Turns on QLog logging
+    --pcap                    Turns on packet capturing using TShark
 """
 
 import sys, os, time, random, subprocess, json, sqlite3, asyncio, itertools
@@ -84,6 +85,7 @@ logger.addHandler(fileHandler)
 CALL_FORMAT  = "sudo tc qdisc add dev {DEVICE} netem {OPTIONS}"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 util_process = None
+pcap_process = None
 
 schemaVer = "1.0"
 serverVersion = "?"
@@ -118,13 +120,23 @@ class ResetTCOnExit:
         reset_condition(self.dev)
         # TODO after logging PR is in, replace with log
         print(f"Exiting Program due to SIGNUM {signum}", flush=True)
-        global util_process
+        global util_process, pcap_process
         if util_process:
             try:
                 util_process.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 # Cleaning up system monitoring subprocess
                 proc_pid = util_process.pid
+                process = psutil.Process(proc_pid)
+                for proc in process.children(recursive=True):
+                    proc.kill()
+                process.kill()
+        if pcap_process:
+            try:
+                pcap_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                # Cleaning up system monitoring subprocess
+                proc_pid = pcap_process.pid
                 process = psutil.Process(proc_pid)
                 for proc in process.children(recursive=True):
                     proc.kill()
@@ -155,6 +167,7 @@ def main():
     git_hash = subprocess.check_output(["git", "describe", "--always"]).strip()
     run_async = args['--async']
     qlog = args['--qlog']
+    pcap = args['--pcap']
     # removes caching in nginx if necessary, starts up server
     # pre_experiment_setup(
     #    disable_caching=disable_caching,
@@ -206,6 +219,7 @@ def main():
             warmup=          warmup_connection,
             database=        database,
             qlog=            qlog,
+            pcap=            pcap,
         )
     else: # TODO this is broken
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
@@ -247,6 +261,7 @@ def run_sync_experiment(
     disable_caching: bool,
     warmup:          bool,
     qlog:            bool,
+    pcap:            bool,
     database, 
 ):
     with sync_playwright() as p:
@@ -258,6 +273,11 @@ def run_sync_experiment(
                 logger.info(f"Condition: {condition}")
                 experiment_id = int(time.time()) # ensures no repeats
                 logger.debug(f"Experiment ID: {experiment_id}")
+                for browser in browsers:
+                    qlog_dir = f"{os.getcwd()}/results/qlogs/{browser}/{experiment_id}"
+                    os.makedirs(qlog_dir, exist_ok = True)
+                    pcap_dir = f"{os.getcwd()}/results/packets/{browser}/{experiment_id}"
+                    os.makedirs(pcap_dir, exist_ok = True)
 
                 # Start system monitoring
                 global util_process
@@ -278,7 +298,15 @@ def run_sync_experiment(
 
                 # run the same experiment multiple times over h3/h2
                 for (useH3, browser) in tqdm(params, desc="Individual Runs"):
-                    results = do_single_experiment_sync(condition, device, p, browser, useH3, endpoint, warmup, qlog, experiment_id)
+                    run_id = int(time.time())
+                    if pcap:
+                        global pcap_process
+                        pcap_file = f"results/packets/{browser}/{experiment_id}/{run_id}-{useH3}"
+                        pcap_process = subprocess.Popen(f"tshark -i {device} -Q -w {os.getcwd()}/{pcap_file}.pcap".split())
+
+                    results = do_single_experiment_sync(condition, device, p, browser, useH3, 
+                                                            endpoint, warmup, qlog, pcap,
+                                                            experiment_id, run_id)
                     results["experimentID"] = experiment_id
                     results["httpVersion"] = "h3" if useH3 else "h2" 
                     results["warmup"] = warmup
@@ -294,6 +322,16 @@ def run_sync_experiment(
                         logger.debug(f"{browser}: {results['server']} ({httpVersion})")
                     else:
                         logger.error(f"{browser}: {'error'}({httpVersion})")
+                    if pcap:
+                        try:
+                            pcap_process.wait(timeout=3)
+                        except subprocess.TimeoutExpired:
+                            # Cleaning up system monitoring subprocess
+                            proc_pid = pcap_process.pid
+                            process = psutil.Process(proc_pid)
+                            for proc in process.children(recursive=True):
+                                proc.kill()
+                            process.kill()
                 try:
                     util_process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
@@ -307,7 +345,6 @@ def run_sync_experiment(
                 # end server monitoring 
                 if on_server(url=url):
                     end_server_monitoring(ssh=ssh_client)
-
 
 async def run_async_experiment(
     schema_version:  str, 
