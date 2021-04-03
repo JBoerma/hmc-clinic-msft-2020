@@ -27,10 +27,12 @@ def do_single_experiment_sync(
     endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
+    pcap: bool,
     expnt_id: int,
+    run_id: int,
 ) -> json:
     apply_condition(device, condition)
-    results = launch_browser_sync(pw_instance, browser_type, h3, endpoint, warmup, qlog, expnt_id)
+    results = launch_browser_sync(pw_instance, browser_type, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
     reset_condition(device)
 
     return results
@@ -45,26 +47,28 @@ def launch_browser_sync(
     endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
-    expnt_id: int
+    pcap: bool,
+    expnt_id: int,
+    run_id: int,
 ) -> json:
-    qlog_dir = f"{os.getcwd()}/results/qlogs/"
-    if not os.path.exists(qlog_dir):
-        os.makedirs(qlog_dir, exist_ok = True)
-
-    browser = None 
+    browser = None
     if browser_type  ==  "firefox":
-        browser = launch_firefox_sync(pw_instance, h3, endpoint, warmup, qlog, expnt_id)
+        browser = launch_firefox_sync(pw_instance, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
     elif browser_type  ==  "chromium":
-        browser = launch_chromium_sync(pw_instance, h3, endpoint, warmup, qlog, expnt_id)
+        browser = launch_chromium_sync(pw_instance, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
     elif browser_type  ==  "edge":
-        browser = launch_edge_sync(pw_instance, h3, endpoint, warmup, qlog, expnt_id)
-    
+        browser = launch_edge_sync(pw_instance, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
     # if browser fails to launch, stop this request and write to the database
     if not browser: 
         return {"error": "launch_browser_failed"}
 
-    return get_results_sync(browser, h3, endpoint, warmup)
-
+    result = get_results_sync(browser, h3, endpoint, warmup)
+    if h3 and qlog and browser_type == "firefox":
+        # change qlogś name so that it will be saved to results/qlogs/firefox/[experimentID]
+        for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
+            qlog_dir = f"{os.getcwd()}/results/qlogs/firefox/{expnt_id}"
+            os.rename(qlog, f"{qlog_dir}/{run_id}.qlog")
+    return result
 """
 Launch the firefox browser
 """
@@ -74,17 +78,16 @@ def launch_firefox_sync(
     endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
+    pcap: bool,
     expnt_id: int,
+    run_id: int,
 ) -> json:
     # set up firefox preference
     firefox_prefs = {}
     firefox_prefs["privacy.reduceTimerPrecision"] = False
-    qlog_dir = f"{os.getcwd()}/results/qlogs/firefox"
     if h3:
         if qlog:
             firefox_prefs["network.http.http3.enable_qlog"] = True  # enable qlog
-            qlog_path = set_up_qlogs_dir(qlog_dir, expnt_id)
-        domain = endpoint.get_domain()
         firefox_prefs["network.http.http3.enabled"] = True # enable h3 protocol
         # the openlightspeed server works with a different h3 version than the rest of the servers
 
@@ -92,21 +95,23 @@ def launch_firefox_sync(
         h3_version = "29"
         if endpoint.get_endpoint() == "server-openlitespeed":
             h3_version = "27"
-
-        firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{domain};h3-{h3_version}=:{port}"       
+        firefox_prefs["network.http.http3.alt-svc-mapping-for-testing"] = f"{endpoint.port};h3-{h3_version}=:{port}"       
     # attempt to launch browser
     try:
-        browser = pw_instance.firefox.launch(
-            headless=True,
-            firefox_user_prefs=firefox_prefs,
-        )
-        if h3 and qlog:
-            # change qlogś name so that it will be saved to results/qlogs/firefox/[experimentID]
-            for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
-                os.rename(qlog, f"{qlog_path}/{time.time()}.qlog")
-        return browser
-    except:  
-        logger.exception("Browser failed to launch")
+        if pcap:
+            pcap_file = f"{os.getcwd()}/results/packets/firefox/{expnt_id}/{run_id}-{h3}.keys"
+            return pw_instance.firefox.launch(
+                headless=True,
+                firefox_user_prefs=firefox_prefs,
+                env={"SSLKEYLOGFILE": pcap_file}
+            )
+        else:
+            return pw_instance.firefox.launch(
+                headless=True,
+                firefox_user_prefs=firefox_prefs,
+            )
+    except Exception as e:  # if browser fails to launch, stop this request and write to the database
+        logger.exception(str(e))
         return None
 
 """
@@ -118,7 +123,9 @@ def launch_chromium_sync(
     endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
+    pcap: bool,
     expnt_id: int,
+    run_id: int,
 ) -> json:
     chromium_args = []
     if h3:
@@ -133,18 +140,24 @@ def launch_chromium_sync(
         
         if qlog:
             # set up a directory results/qlogs/chromium/[experimentID] to save qlog
-            qlog_dir = f"{os.getcwd()}/results/qlogs/chromium"
-            qlog_path = set_up_qlogs_dir(qlog_dir, expnt_id)
-            chromium_args.append(f"--log-net-log={qlog_path}/{time.time()}.json")
+            qlog_dir = f"{os.getcwd()}/results/qlogs/chromium/{expnt_id}/"
+            chromium_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
     # attempt to launch browser
     try:
-        browser = pw_instance.chromium.launch(
-            headless=True,
-            args=chromium_args,
-        )
-        return browser
-    except:  
-        logger.exception("Browser failed to launch")
+        if pcap:
+            pcap_file = f"{os.getcwd()}/results/packets/chromium/{expnt_id}/{run_id}-{h3}.keys"
+            return pw_instance.chromium.launch(
+                headless=True,
+                args=chromium_args,
+                env={"SSLKEYLOGFILE": pcap_file}
+            )
+        else:
+            return pw_instance.chromium.launch(
+                headless=True,
+                args=chromium_args,
+            )
+    except Exception as e:  # if browser fails to launch, stop this request and write to the database
+        logger.error(str(e))
         return None
 
 """
@@ -156,7 +169,9 @@ def launch_edge_sync(
     endpoint: Endpoint,
     warmup: bool,
     qlog: bool,
+    pcap: bool,
     expnt_id: int,
+    run_id: int,
 ) -> json:
     edge_args = []
     if (h3) :
@@ -169,19 +184,26 @@ def launch_edge_sync(
             pass # TODO - do we need to force quic on other endpoints?
         
         if qlog:
-            qlog_dir = f"{os.getcwd()}/results/logs/edge"
-            qlog_path = set_up_qlogs_dir(qlog_dir, expnt_id)
-            edge_args.append(f"--log-net-log={qlog_path}/{time.time()}.json")
+            qlog_dir = f"{os.getcwd()}/results/qlogs/edge/{expnt_id}/"
+            edge_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
     # attempt to launch browser
     try:
-        browser = pw_instance.chromium.launch(
-            headless=True,
-            executable_path='/opt/microsoft/msedge-dev/msedge',
-            args=edge_args,
-        )
-        return browser
-    except: 
-        logger.exception("Browser failed to launch")
+        if pcap:
+            pcap_file = f"{os.getcwd()}/results/packets/edge/{expnt_id}/{run_id}-{h3}.keys"
+            return pw_instance.chromium.launch(
+                headless=True,
+                executable_path='/opt/microsoft/msedge-dev/msedge',
+                args=edge_args,
+                env={"SSLKEYLOGFILE": pcap_file}
+            )
+        else:
+            return pw_instance.chromium.launch(
+                headless=True,
+                executable_path='/opt/microsoft/msedge-dev/msedge',
+                args=edge_args,
+            )
+    except Exception as e:  # if browser fails to launch, stop this request and write to the database
+        logger.error(str(e))
         return None
     
 """
@@ -230,16 +252,6 @@ def get_domain(url):
         return url
     else:
         return url[8:]
-
-"""
-Set up dirctory for qlogs, given parent directory and experiment id
-"""
-def set_up_qlogs_dir(qlog_dir, expnt_id):
-    if not os.path.exists(qlog_dir):
-        os.mkdir(qlog_dir)
-    if not os.path.exists(f"{qlog_dir}/{expnt_id}"):
-        os.mkdir(f"{qlog_dir}/{expnt_id}")
-    return f"{qlog_dir}/{expnt_id}"
 
 """
 Warm up the browser given a browser page
