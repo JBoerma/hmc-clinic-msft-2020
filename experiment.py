@@ -5,8 +5,8 @@ Usage:
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
-    --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
-    --browsers BROWSERS       List of browsers to test [default: chromium edge]
+    --conditions CONDITIONS   List of network conditions [default: 3.5g-hspa-good 4g-lte-good]
+    --browsers BROWSERS       List of browsers to test [default: chromium edge firefox]
     --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
     --urls URLS               URL to access
     --runs RUNS               Number of runs in the experiment [default: 100]
@@ -368,9 +368,7 @@ async def run_async_experiment(
     # TODO: fix this solution. Currently need a server_port to come up with
     # combinations, but surver_ports are incompatible with url that is 
     # passed in based on loigc below (url + port)
-    if server_ports: 
-        url="https://localhost"
-    else:
+    if not server_ports: 
         server_ports = [""]
 
     stuff = [(condition, port, browser, version, payload) 
@@ -415,15 +413,19 @@ async def run_async_experiment(
 
             # one run is a run of "througput" page visits TODO revist this after meeting
             for _ in range(throughput):
-                # TODO: move launchBrowser outside, experiments should share browser
+                # move launchBrowser outside, experiments should share browser
+                browser = await launch_browser_async(
+                    p, browser_name, url, h_version == "h3", server_port, payload
+                )
+
                 outstanding.append((
                     asyncio.create_task(
                         get_results_async(
-                            p, browser_name, url, h_version=="h3", server_port, payload, warmup
+                            p, browser_name, browser, url, h_version=="h3", server_port, payload, warmup
                         )
                     ), combo)
                 )
-
+            
             await clean_outstanding(
                 outstanding=outstanding, 
                 warmup=warmup, 
@@ -450,7 +452,7 @@ async def clean_outstanding(outstanding: List, warmup: bool, database, experimen
         # TODO - server_port is unused. Is this bc we don't have a column for it?
         condition, server_port, browser_name, h_version, payload = combo
         if task.done():
-            (results, browser) = task.result()
+            results, browser = task.result()
             results["experimentID"] = experiment_id
             results["netemParams"] = condition
             results["httpVersion"] = h_version
