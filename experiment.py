@@ -396,6 +396,8 @@ async def run_async_experiment(
     # each combination of params gets equal weight
     experiment_runs = {combo: runs for combo in experiment_combos}
 
+    # set up progress bar
+    pbar = tqdm(total = runs * len(experiment_combos), desc="Experiments")
     async with async_playwright() as p: 
         outstanding = []
         while experiment_runs:
@@ -405,7 +407,7 @@ async def run_async_experiment(
                 del experiment_runs[combo]
                 continue
             experiment_runs[combo] -= 1
-
+            pbar.update(1)
             condition, server_port, browser_name, h_version, payload = combo 
 
             # set tc/netem params
@@ -415,22 +417,22 @@ async def run_async_experiment(
             for _ in range(throughput):
                 # move launchBrowser outside, experiments should share browser
                 browser = await launch_browser_async(
-                    p, browser_name, url, h_version == "h3", server_port, payload
+                    p, browser_name, url, h_version == "h3", server_port
                 )
 
                 outstanding.append((
                     asyncio.create_task(
                         get_results_async(
-                            p, browser_name, browser, url, h_version=="h3", server_port, payload, warmup
+                            browser, url, h_version=="h3", server_port, payload, warmup
                         )
                     ), combo)
                 )
-            
             await clean_outstanding(
                 outstanding=outstanding, 
                 warmup=warmup, 
                 database=database, 
-                experiment_id=experiment_id
+                experiment_id=experiment_id,
+                device=device
             ) 
             # TODO: move browser close outside
         
@@ -439,14 +441,16 @@ async def run_async_experiment(
                 outstanding=outstanding, 
                 warmup=warmup, 
                 database=database, 
-                experiment_id=experiment_id
+                experiment_id=experiment_id,
+                device=device
             ) 
 
     # only reset after all experiments
-    reset_condition(device)
+    # reset_condition(device)
+    pbar.close()
 
 
-async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str): 
+async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str): 
     for item in outstanding:
         (task, combo) = item
         # TODO - server_port is unused. Is this bc we don't have a column for it?
@@ -462,7 +466,8 @@ async def clean_outstanding(outstanding: List, warmup: bool, database, experimen
             write_timing_data(results, database)
             outstanding.remove(item)
             asyncio.create_task(browser.close())
-    await asyncio.sleep(1)
+    await asyncio.sleep(1) 
+    reset_condition(device)
 
 
 if __name__ == "__main__":
