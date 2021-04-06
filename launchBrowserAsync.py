@@ -10,7 +10,6 @@ async def launch_browser_async(
     url: str, 
     h3: bool,
     port: str,
-    payload: str, #TODO: remove payload. it is not used in this method
 ):
     if browser_type  ==  "firefox":
         return await launch_firefox_async(pw_instance, url, h3, port)
@@ -80,8 +79,6 @@ async def launch_edge_async(
 
 
 async def get_results_async(
-    pw_instance, # TODO: remove. because once browser is shared with other requests, pw_instance is not unique per request
-    browser_name, # TODO: remove for the same reason above
     browser,
     url: str, 
     h3: bool,
