@@ -24,3 +24,9 @@ caddy
 
 # ignore files with critical info
 ips.json
+
+# log files
+*.log
+
+# sensitive
+*.pem

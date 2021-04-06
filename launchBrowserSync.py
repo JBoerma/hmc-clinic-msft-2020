@@ -193,6 +193,7 @@ def get_results_sync(
         # ie: localhost, server ip address
         # then we can test specified h3 implementation or payload
         url = url + port + "/" + payload + ".html"
+
     # warm up the browser
     warmup_if_specified_sync(page, url, warmup)
     # attempt to navigate to the url
@@ -201,7 +202,6 @@ def get_results_sync(
         # connection and data transfer take longer
         page.set_default_timeout(60000)
         response = page.goto(url)
-
         # getting performance timing data
         # if we don't stringify and parse, things break
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
