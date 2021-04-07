@@ -1,6 +1,6 @@
 #!/bin/bash
 # creating complex files
-SERVERDIR="/usr/local/nginx/payloads"
+SERVERDIR="/usr/local/payloads"
 mkdir -p $SERVERDIR/assets
 
 # creating local image references for html files
