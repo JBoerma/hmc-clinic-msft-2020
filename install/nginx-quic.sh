@@ -112,11 +112,6 @@ echo '---------Configuring Server--------'
 
 sudo cp "$INSTALLDIR/nginx-quic.conf" /usr/local/nginx-quic/conf/nginx.conf
 
-# add payloads
-sudo cp -r "$INSTALLDIR/payloads/" /usr/local/nginx/
-
-#create html files
-sudo sh -c ./generate-server-payloads.sh
 
 # Add systemd service
 echo '------Adding Service---------'
