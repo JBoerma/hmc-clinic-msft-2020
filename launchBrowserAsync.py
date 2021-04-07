@@ -86,10 +86,6 @@ async def get_results_async(
     payload: str,
     warmup: bool,
 ) -> json:
-    """
-     browser = await launch_browser_async(
-        pw_instance, browser_name, url, h3, port , payload
-    )"""
     context = await browser.new_context()
     page = await context.new_page()
     if url == "https://localhost":
