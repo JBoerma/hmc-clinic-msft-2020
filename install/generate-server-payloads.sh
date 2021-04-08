@@ -10,10 +10,21 @@ sudo wget https://via.placeholder.com/${i}/${i} -O $SERVERDIR/assets/placeholder
 sudo wget https://placekitten.com/${i}/${i} -O $SERVERDIR/assets/cats_${i}.jpg
 done
 
+for i in {400..419}
+do
+echo "<img  src='https://placekitten.com/${i}/${i}' width='${i}' height='${i}' alt=''>"
+done > $SERVERDIR/small.html
+
+for i in {400..449}
+do
+echo "<img  src='https://placekitten.com/${i}/${i}' height='${i}' alt=''>"
+done > $SERVERDIR/medium.html
+
 for i in {400..499}
 do
-echo "<img  src='assets/cats_${i}.jpg' width='${i}' height='${i}' alt=''>"
-done > $SERVERDIR/cats_local.html
+echo "<img  src='https://placekitten.com/${i}/${i}' height='${i}' alt=''>"
+done > $SERVERDIR/large.html
+
 for i in {400..499}
 do
 echo "<img  src='https://placekitten.com/${i}/${i}' width='${i}' height='${i}' alt=''>"
