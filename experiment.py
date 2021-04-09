@@ -5,11 +5,11 @@ Usage:
     
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
-    --conditions CONDITIONS   List of network conditions [default: 3.5g-hspa-good 4g-lte-good]
-    --browsers BROWSERS       List of browsers to test [default: chromium edge firefox]
-    --throughput THROUGHPUT   Maximum number of request to send at a time [default: 1]
+    --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
+    --browsers BROWSERS       List of browsers to test (chromium edge firefox) [default: chromium]
+    --throughput THROUGHPUT   Maximum number of request to send at a time when --async is set
     --urls URLS               URL to access
-    --runs RUNS               Number of runs in the experiment [default: 100]
+    --runs RUNS               Number of runs in the experiment [default: 1]
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
     --json JSON               JSON file of arguments
