@@ -25,7 +25,7 @@ Options:
     --pcap                    Turns on packet capturing using TShark
 """
 
-import sys, os, time, random, subprocess, json, sqlite3, asyncio, itertools
+import sys, os, time, random, subprocess, json, sqlite3, asyncio, itertools, glob
 import cache_control
 from subprocess import Popen
 from typing import List, Dict, Tuple
@@ -39,8 +39,8 @@ import psutil
 import signal
 
 # separating our own imports
-from launchBrowserAsync import launch_browser_async, get_results_async
-from launchBrowserSync import launch_browser_sync, do_single_experiment_sync
+from launchBrowserAsync import do_single_run_async
+from launchBrowserSync import do_single_experiment_sync
 from experiment_utils import apply_condition, reset_condition, setup_data_file_headers, write_big_table_data, write_timing_data
 from ssh_utils import start_server_monitoring, end_server_monitoring, on_server, get_server_private_ip
 from endpoint import Endpoint
@@ -224,21 +224,20 @@ def main():
     else: # TODO this is broken
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
             schema_version=  "0",
-            experiment_id=   str(int(time.time())),
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
-            server_ports=    ports,
+            endpoints=       endpts,
             conditions=      conditions,
             browsers=        browsers,
-            url=             url,
             runs=            runs,
+            out=             out,
             disable_caching= disable_caching,
             warmup=          warmup_connection,
-            throughput=      throughput,
             database=        database,
-            payloads =       payloads
-
+            qlog=            qlog,
+            pcap=            pcap,
+            throughput=      throughput,
         ))
 
     # post_experiment_cleanup(
@@ -274,9 +273,9 @@ def run_sync_experiment(
                 experiment_id = int(time.time()) # ensures no repeats
                 logger.debug(f"Experiment ID: {experiment_id}")
                 for browser in browsers:
-                    qlog_dir = f"{os.getcwd()}/results/qlogs/{browser}/{experiment_id}"
+                    qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{experiment_id}/{browser}"
                     os.makedirs(qlog_dir, exist_ok = True)
-                    pcap_dir = f"{os.getcwd()}/results/packets/{browser}/{experiment_id}"
+                    pcap_dir = f"{os.getcwd()}/results/packets/sync-{experiment_id}/{browser}"
                     os.makedirs(pcap_dir, exist_ok = True)
 
                 # Start system monitoring
@@ -347,127 +346,134 @@ def run_sync_experiment(
                     end_server_monitoring(ssh=ssh_client)
 
 async def run_async_experiment(
-    schema_version:  str, 
-    experiment_id:   str,
+    schema_version:  str,
     git_hash:        str, 
     server_version:  str, 
     device:          str, 
-    server_ports:    List[str],
+    endpoints:       List[Endpoint],
     conditions:      List[str], 
     browsers:        List[str],
-    url:             str,
     runs:            int, 
+    out:             str,
     disable_caching: bool,
     warmup:          bool,
+    qlog:            bool,
+    pcap:            bool,
+    database, 
     throughput:      int,
-    database,     
-    payloads:        List[str],
-):     
-    experiment_combos = [] 
-    
-    # TODO: fix this solution. Currently need a server_port to come up with
-    # combinations, but surver_ports are incompatible with url that is 
-    # passed in based on loigc below (url + port)
-    if not server_ports: 
-        server_ports = [""]
+):
+    async with async_playwright() as p:
+        # TODO randomize endpoint and condition. There is no reason to not randomize them.
+        for endpoint in tqdm(endpoints, desc="Endpoints"): 
+            logger.info(f"URL: {endpoint.get_url()}")
+            url = endpoint.get_url()
+            for condition in tqdm(conditions, desc="Experiments"):
+                logger.info(f"Condition: {condition}")
+                experiment_id = int(time.time()) # ensures no repeats
+                logger.debug(f"Experiment ID: {experiment_id}")
+                for browser in browsers:
+                    qlog_dir = f"{os.getcwd()}/results/qlogs/async-{experiment_id}/{browser}"
+                    os.makedirs(qlog_dir, exist_ok = True)
+                    pcap_dir = f"{os.getcwd()}/results/packets/async-{experiment_id}/{browser}"
+                    os.makedirs(pcap_dir, exist_ok = True)
 
-    stuff = [(condition, port, browser, version, payload) 
-        for condition in conditions 
-        for port in server_ports 
-        for browser in browsers 
-        for version in ["h2", "h3"]
-        for payload in payloads
-    ]
+                # Start system monitoring
+                global util_process
+                util_process = subprocess.Popen(["python3", "systemUtil.py", str(experiment_id), 'client', str(out)])
+                tableData = (schema_version, experiment_id, url, server_version, git_hash, condition)
+                write_big_table_data(tableData, database)
 
-    for condition, server_port, browser, h_version, payload in stuff: 
-        experiment_combos.append(
-            (condition, server_port, browser, h_version, payload)
-        )
-        tableData = (
-            schema_version, 
-            experiment_id, 
-            url, 
-            server_version, 
-            git_hash, 
-            condition
-        )
-        write_big_table_data(tableData, database)
+                # Start server monitoring if accessing our own server
+                ssh_client = None
+                if endpoint.is_on_server():
+                    ssh_client = start_server_monitoring(experiment_id, str(out))
 
-    # each combination of params gets equal weight
-    experiment_runs = {combo: runs for combo in experiment_combos}
+                params = [(h3, browser) 
+                    for browser in browsers 
+                    for h3 in [True, False]
+                ] * runs
+                random.shuffle(params)
 
-    # set up progress bar
-    pbar = tqdm(total = runs * len(experiment_combos), desc="Experiments")
-    async with async_playwright() as p: 
-        outstanding = []
-        while experiment_runs:
-            # choose a combo to work with
-            combo = random.choice(list(experiment_runs.keys()))
-            if experiment_runs[combo] <= 0: 
-                del experiment_runs[combo]
-                continue
-            experiment_runs[combo] -= 1
-            pbar.update(1)
-            condition, server_port, browser_name, h_version, payload = combo 
-
-            # set tc/netem params
-            apply_condition(device, condition)
-
-            # one run is a run of "througput" page visits TODO revist this after meeting
-            for _ in range(throughput):
-                # move launchBrowser outside, experiments should share browser
-                browser = await launch_browser_async(
-                    p, browser_name, url, h_version == "h3", server_port
-                )
-
-                outstanding.append((
-                    asyncio.create_task(
-                        get_results_async(
-                            browser, url, h_version=="h3", server_port, payload, warmup
+                apply_condition(device, condition)
+                if pcap:
+                    global pcap_process
+                    pcap_file = f"results/packets/async-{experiment_id}/async.pcap"
+                    pcap_process = subprocess.Popen(f"tshark -i {device} -Q -w {os.getcwd()}/{pcap_file}".split())
+                # one run is a run of "througput" page visits TODO revist this after meeting
+                for (useH3, browser) in tqdm(params, desc="Individual Runs"):
+                    outstanding = []
+                    for _ in range(throughput):
+                        # Need more precision for async run ids since seconds might overlap
+                        run_id = int(time.time_ns())
+                        outstanding.append(
+                            do_single_run_async(condition, device, p, browser, useH3, 
+                                endpoint, warmup, qlog, pcap,
+                                experiment_id, run_id)
                         )
-                    ), combo)
-                )
-            await clean_outstanding(
-                outstanding=outstanding, 
-                warmup=warmup, 
-                database=database, 
-                experiment_id=experiment_id,
-                device=device
-            ) 
-            # TODO: move browser close outside
-        
-        while outstanding:
-            await clean_outstanding(
-                outstanding=outstanding, 
-                warmup=warmup, 
-                database=database, 
-                experiment_id=experiment_id,
-                device=device
-            ) 
+                    while outstanding:
+                        await clean_outstanding(
+                            outstanding=outstanding, 
+                            warmup=warmup, 
+                            database=database, 
+                            experiment_id=experiment_id,
+                            device=device,
+                        )
+                    if qlog and browser == "firefox":
+                        # change qlogś name so that it will be saved to results/qlogs/async-[experimentID]/firefox
+                        set_id = int(time.time())
+                        qlog_num = 0
+                        for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
+                            qlog_dir = f"{os.getcwd()}/results/qlogs/{experiment_id}/firefox/"
+                            os.rename(qlog, f"{qlog_dir}/{set_id}-{qlog_num}.qlog")
+                            qlog_num += 1
+                reset_condition(device) 
+                if pcap:
+                    try:
+                        pcap_process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        # Cleaning up system monitoring subprocess
+                        proc_pid = pcap_process.pid
+                        process = psutil.Process(proc_pid)
+                        for proc in process.children(recursive=True):
+                            proc.kill()
+                        process.kill()
+            try:
+                util_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                # Cleaning up system monitoring subprocess
+                proc_pid = util_process.pid
+                process = psutil.Process(proc_pid)
+                for proc in process.children(recursive=True):
+                    proc.kill()
+                process.kill()
+            # end server monitoring 
+            if on_server(url=url):
+                end_server_monitoring(ssh=ssh_client)
 
-    # only reset after all experiments
-    # reset_condition(device)
-    pbar.close()
 
-
-async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str): 
+async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str,): 
     for item in outstanding:
         (task, combo) = item
         # TODO - server_port is unused. Is this bc we don't have a column for it?
-        condition, server_port, browser_name, h_version, payload = combo
+        condition, endpoint, browser, useH3 = combo
         if task.done():
-            results, browser = task.result()
+            results = task.result()
             results["experimentID"] = experiment_id
-            results["netemParams"] = condition
-            results["httpVersion"] = h_version
+            results["httpVersion"] = "h3" if useH3 else "h2" 
             results["warmup"] = warmup
-            results["browser"] = browser_name
-            results["payloadSize"] = payload
+            results["browser"] = browser 
+            results["payloadSize"] = endpoint.get_payload() 
+            results["netemParams"] = condition
             write_timing_data(results, database)
+            httpVersion = "HTTP/3" if useH3 else "HTTP/2"
+            # Print info from latest run and then go back lines to prevent broken progress bars
+            # if the request fails, we will print out the message in the console
+            if 'server' in results.keys():
+                logger.debug(f"{browser}: {results['server']} ({httpVersion})")
+            else:
+                logger.error(f"{browser}: {'error'}({httpVersion})")
             outstanding.remove(item)
-            asyncio.create_task(browser.close())
     await asyncio.sleep(1) 
-    reset_condition(device)
 
 
 if __name__ == "__main__":

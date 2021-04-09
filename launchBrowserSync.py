@@ -66,7 +66,7 @@ def launch_browser_sync(
     if h3 and qlog and browser_type == "firefox":
         # change qlogś name so that it will be saved to results/qlogs/firefox/[experimentID]
         for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
-            qlog_dir = f"{os.getcwd()}/results/qlogs/firefox/{expnt_id}"
+            qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/firefox"
             os.rename(qlog, f"{qlog_dir}/{run_id}.qlog")
     return result
 """
@@ -99,7 +99,7 @@ def launch_firefox_sync(
     # attempt to launch browser
     try:
         if pcap:
-            pcap_file = f"{os.getcwd()}/results/packets/firefox/{expnt_id}/{run_id}-{h3}.keys"
+            pcap_file = f"{os.getcwd()}/results/packets/sync-{expnt_id}/firefox/{run_id}-{h3}.keys"
             return pw_instance.firefox.launch(
                 headless=True,
                 firefox_user_prefs=firefox_prefs,
@@ -140,12 +140,12 @@ def launch_chromium_sync(
         
         if qlog:
             # set up a directory results/qlogs/chromium/[experimentID] to save qlog
-            qlog_dir = f"{os.getcwd()}/results/qlogs/chromium/{expnt_id}/"
+            qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/chromium/"
             chromium_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
     # attempt to launch browser
     try:
         if pcap:
-            pcap_file = f"{os.getcwd()}/results/packets/chromium/{expnt_id}/{run_id}-{h3}.keys"
+            pcap_file = f"{os.getcwd()}/results/packets/sync-{expnt_id}/chromium/{run_id}-{h3}.keys"
             return pw_instance.chromium.launch(
                 headless=True,
                 args=chromium_args,
@@ -184,12 +184,12 @@ def launch_edge_sync(
             pass # TODO - do we need to force quic on other endpoints?
         
         if qlog:
-            qlog_dir = f"{os.getcwd()}/results/qlogs/edge/{expnt_id}/"
+            qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/edge/"
             edge_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
     # attempt to launch browser
     try:
         if pcap:
-            pcap_file = f"{os.getcwd()}/results/packets/edge/{expnt_id}/{run_id}-{h3}.keys"
+            pcap_file = f"{os.getcwd()}/results/packets/sync-{expnt_id}/edge/{run_id}-{h3}.keys"
             return pw_instance.chromium.launch(
                 headless=True,
                 executable_path='/opt/microsoft/msedge-dev/msedge',
