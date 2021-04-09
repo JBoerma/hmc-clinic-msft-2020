@@ -6,6 +6,7 @@ Usage:
 Arguments:
     --device DEVICE           Network device to modify [default: lo]
     --conditions CONDITIONS   List of network conditions [default: 4g-lte-good]
+    --browsers BROWSERS       List of browsers to test [default: chromium edge firefox]
     --throughput THROUGHPUT   Maximum number of request to send at a time when --async is set [default: 1]
     --urls URLS               URL to access
     --runs RUNS               Number of runs in the experiment [default: 1]
@@ -187,6 +188,10 @@ def main():
     # Each url gets its own endpoint. Exceptions are handled silently - 
     # the script will try to continue with whatever works
     for url in urls:
+        protocol = "http://"
+        if protocol != url[0:7]:
+            logger.warning(f"There is no \"{protocol}\" in the url: {url}")
+
         try: 
             endpts.append(Endpoint(url, None, None))
         except Exception: 
