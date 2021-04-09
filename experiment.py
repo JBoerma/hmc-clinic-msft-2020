@@ -13,7 +13,7 @@ Arguments:
     --out OUT                 File to output data to [default: results/results.db]
     --ports PORTS             List of ports to use (':443', ':444', ':445', ':446') [default: :443]
     --json JSON               JSON file of arguments
-    --payloads PAYLOADS       List of sizes of the requsting payload (1kb, 10kb, 100kb) [default: 1kb 10kb 100kb]
+    --payloads PAYLOADS       List of sizes of the requesting payload (1kb, 10kb, 100kb) [default: 1kb 10kb 100kb]
     --endpoints ENDPOINTS     Endpoint to hit. (server-nginx server-nginx-quiche server-caddy server-openlitespeed facebook google cloudflare)
 
 Options:
