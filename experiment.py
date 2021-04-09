@@ -71,7 +71,7 @@ consoleHandler = TqdmLoggingHandler()
 consoleHandler.setLevel(logging.INFO)
 consoleHandler.setFormatter(formatter)
 # file handler logs DEBUG, INFO, and above to file
-log_time = time.time()
+log_time = time.time_ns()
 log_file = f"{log_time}.log"
 fileHandler = logging.FileHandler(log_file)
 fileHandler.setLevel(logging.DEBUG)
@@ -144,6 +144,8 @@ class ResetTCOnExit:
 
 
 def main():   
+    logger.info(f"Logs at {log_file}")
+
     # Process args
     args = docopt(__doc__, argv=None, help=True, version=None, options_first=False)
     # If JSON, merge arguments in - will overwrite overlapping arguments
@@ -197,7 +199,7 @@ def main():
             logger.exception(f"Error in creating endpoint for endpoint - payload: {endpoint} - {payload}")
     
     if len(endpts) == 0: 
-        logger.error("There are no valid endpoints. Aborting...")
+        logger.error("There are no valid endpoints or urls. Aborting...")
         sys.exit()
     
     # Setup data file headers  
