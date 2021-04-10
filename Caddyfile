@@ -2,10 +2,7 @@
         experimental_http3
         https_port 445
 }
-10.0.0.10 {
-    log {
-
-    }
+localhost {
     root * /usr/local/payloads
     file_server
     tls /usr/local/nginx/conf/localhost.pem /usr/local/nginx/conf/localhost-key.pem
