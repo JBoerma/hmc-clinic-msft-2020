@@ -230,7 +230,6 @@ def get_results_sync(
         # connection and data transfer take longer
         page.set_default_timeout(60000)
         response = page.goto(url)
-
         # getting performance timing data
         # if we don't stringify and parse, things break
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
