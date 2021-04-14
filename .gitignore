@@ -13,6 +13,7 @@
 *.png
 results
 graph
+.log
 
 # build files
 *.gz
@@ -28,6 +29,7 @@ ips.json
 
 # log files
 *.log
+*_args.json
 
 # sensitive
 *.pem

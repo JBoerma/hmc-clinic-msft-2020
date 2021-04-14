@@ -231,7 +231,7 @@ def main():
             server_ports=    ports,
             conditions=      conditions,
             browsers=        browsers,
-            url=             url,
+            url=             urls,
             runs=            runs,
             disable_caching= disable_caching,
             warmup=          warmup_connection,
