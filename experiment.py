@@ -450,8 +450,7 @@ async def run_async_experiment(
             if on_server(url=url):
                 end_server_monitoring(ssh=ssh_client)
 
-
-async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str,): 
+async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str): 
     for item in outstanding:
         (task, combo) = item
         # TODO - server_port is unused. Is this bc we don't have a column for it?
