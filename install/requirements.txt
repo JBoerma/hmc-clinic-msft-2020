@@ -1,4 +1,4 @@
-playwright>=1.8.0a1
+playwright>=1.10.0
 paramiko
 docopt
 tqdm
