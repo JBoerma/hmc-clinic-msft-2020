@@ -300,7 +300,7 @@ def run_sync_experiment(
                     run_id = int(time.time())
                     if pcap:
                         global pcap_process
-                        pcap_file = f"results/packets/{browser}/{experiment_id}/{run_id}-{useH3}"
+                        pcap_file = f"results/packets/sync-{experiment_id}/{browser}/{run_id}-{useH3}"
                         pcap_process = subprocess.Popen(f"tshark -i {device} -Q -w {os.getcwd()}/{pcap_file}.pcap".split())
 
                     results = do_single_experiment_sync(condition, device, p, browser, useH3, 
