@@ -60,7 +60,7 @@ class Endpoint():
             self.on_server = True
             self.domain = get_server_private_ip()
             self.port = endpoint_to_port[endpoint]
-            self.url = f"{self.domain}:{self.port}/{self.payload}"
+            self.url = f"https://{self.domain}:{self.port}/{self.payload}"
         else:
             # Use json file to get url for public endpoints
             # If the particular endpoint/payload is not available, throw an exception 
