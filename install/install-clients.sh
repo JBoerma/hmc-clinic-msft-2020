@@ -2,8 +2,8 @@
 sudo apt install -y iproute2 \
                     libdbus-glib-1-2 \
                     libnss3-tools \
-                    golang \
-		    libdbus-glib-1-2
+                    golang 
+		    
 
 # Need Python 3.9.1 for Playwright
 echo '----Installing Python 3.9.1----'
