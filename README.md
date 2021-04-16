@@ -29,8 +29,6 @@ cd hmc-clinic-msft-2020/install/
 ./install-servers.sh 
 ```
 
-To install the servers and set up the environment, run the following on the server VM:
-    ./install-all.sh
 
 You can verify the install by visiting https://localhost
 
