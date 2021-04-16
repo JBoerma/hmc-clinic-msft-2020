@@ -1,16 +1,25 @@
-# Install playwright
-sudo apt install -y python3-pip \
-                    iproute2 \
+# Install Deps 
+sudo apt install -y iproute2 \
                     libdbus-glib-1-2 \
                     libnss3-tools \
                     golang
-                    
+
+# Need Python 3.9.1 for Playwright
+echo '----Installing Python 3.9.1----'
+./python-install.sh
+source ~/.bashrc # want the right version of python
+
+echo '----Installing Python Requirements----'
 pip3 install -r requirements.txt
 python3 -m playwright install
+
+echo '----Configuring Playwright Browsers----'
 # Configure firefox
 ./firefox.sh
 # Download and install Edge
 ./edge.sh
+
+echo '----Installing MKCert----'
 # Setup Go
 if ! command -v go1.15.8 &> /dev/null
 then
