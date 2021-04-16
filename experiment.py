@@ -188,9 +188,9 @@ def main():
     # Each url gets its own endpoint. Exceptions are handled silently - 
     # the script will try to continue with whatever works
     for url in urls:
-        protocol = "http://"
-        if protocol != url[0:7]:
-            logger.warning(f"There is no \"{protocol}\" in the url: {url}")
+        protocols = ["http://", "https://"]
+        if all(protocol != url[0:len(protocol)] for protocol in protocols):
+            logger.warning(f"There is no protocol (e.g. one of {protocols} in the url: {url}")
 
         try: 
             endpts.append(Endpoint(url, None, None))
