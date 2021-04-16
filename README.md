@@ -30,8 +30,6 @@ cd hmc-clinic-msft-2020/install/
 ```
 
 
-You can verify the install by visiting https://localhost
-
 ## Running the Script
 This script will access a given URL using HTTP/2 and HTTP/3 under specified network conditions and with specific browsers, and return navigation timings using the PerformanceNavigationTiming interface, which implements the [Performance Timing Level 2](https://www.w3.org/TR/navigation-timing-2/) specification.
 The script currently uses [tc-netem](https://www.man7.org/linux/man-pages/man8/tc-netem.8.html) to modify the network conditions, so root access is required.
