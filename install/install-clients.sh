@@ -30,7 +30,7 @@ then
     source ~/.bashrc
     go get golang.org/dl/go1.15.8
     source ~/.bashrc
-    go get go1.15.8
+    go1.15.8 download
 fi
 # Create Certificates
 # Install server certificate
