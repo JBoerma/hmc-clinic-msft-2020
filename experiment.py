@@ -318,8 +318,8 @@ def run_sync_experiment(
                     results["browser"] = browser 
                     results["payloadSize"] = endpoint.get_payload() 
                     results["netemParams"] = condition
-                    results["trafficLoad"] = 1
-                    results["pcap"]  = pcap_file if pcap else "n/a",
+                    results["trafficLoad"] = "1"
+                    results["pcap"]  = pcap_file if pcap else "n/a"
                     # TODO: currently missing server, add server
                     write_timing_data(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
