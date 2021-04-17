@@ -431,7 +431,7 @@ async def run_async_experiment(
                         set_id = int(time.time())
                         qlog_num = 0
                         for qlog in glob.glob("/tmp/qlog_*/*.qlog", recursive=True):
-                            qlog_dir = f"{os.getcwd()}/results/qlogs/{experiment_id}/firefox/"
+                            qlog_dir = f"{os.getcwd()}/results/qlogs/async-{experiment_id}/firefox/"
                             os.rename(qlog, f"{qlog_dir}/{set_id}-{qlog_num}.qlog")
                             qlog_num += 1
                 reset_condition(device) 
