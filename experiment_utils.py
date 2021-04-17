@@ -139,6 +139,7 @@ monitoring_fmt = {
 timings_fmt = {
     "experimentID" : "TEXT",
     "trafficLoad":    "Float",
+    "pcap": "BOOL",
     "browser" : "TEXT",
     "server" : "TEXT",
     "httpVersion" : "TEXT",
