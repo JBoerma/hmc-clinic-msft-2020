@@ -87,7 +87,7 @@ RESET_FORMAT = "sudo tc qdisc del dev {DEVICE}"
 util_process = None
 pcap_process = None
 
-schemaVer = "1.0"
+schemaVer = "2.1"
 serverVersion = "?"
 # TODO: disable caching in all servers.
 def pre_experiment_setup(
@@ -212,7 +212,7 @@ def main():
 
     if not run_async:
         run_sync_experiment(
-            schema_version=  "0",
+            schema_version=  schemaVer,
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
@@ -229,7 +229,7 @@ def main():
         )
     else: # TODO this is broken
         asyncio.get_event_loop().run_until_complete(run_async_experiment(
-            schema_version=  "0",
+            schema_version=  schemaVer,
             git_hash=        git_hash,
             server_version=  "0",
             device=          device,
