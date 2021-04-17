@@ -319,7 +319,7 @@ def run_sync_experiment(
                     results["payloadSize"] = endpoint.get_payload() 
                     results["netemParams"] = condition
                     results["trafficLoad"] = 1
-                    results["pcap"] = pcap
+                    results["pcap"]  = pcap_file if pcap else "n/a",
                     # TODO: currently missing server, add server
                     write_timing_data(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
@@ -426,7 +426,7 @@ async def run_async_experiment(
                             experiment_id=experiment_id,
                             device=device,
                             trafficLoad = throughput,
-                            pcap = pcap,
+                            pcap = pcap_file if pcap else "n/a",
                         )
                     if qlog and browser == "firefox":
                         # change qlogś name so that it will be saved to results/qlogs/async-[experimentID]/firefox
@@ -460,7 +460,7 @@ async def run_async_experiment(
             if on_server(url=url):
                 end_server_monitoring(ssh=ssh_client)
 
-async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str, trafficLoad: float, pcap: bool): 
+async def clean_outstanding(outstanding: List, warmup: bool, database, experiment_id: str, device: str, trafficLoad: float, pcap: str): 
     for item in outstanding:
         (task, combo) = item
         # TODO - server_port is unused. Is this bc we don't have a column for it?
