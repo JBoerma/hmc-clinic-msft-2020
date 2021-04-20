@@ -319,7 +319,7 @@ def run_sync_experiment(
                     results["payloadSize"] = endpoint.get_payload() 
                     results["netemParams"] = condition
                     results["trafficLoad"] = str(1)
-                    results["pcap"]  = pcap_file if pcap else "n/a",
+                    results["pcap"]  = pcap_file if pcap else "n/a"
                     # TODO: currently missing server, add server
                     write_timing_data(results, database)
                     httpVersion = "HTTP/3" if useH3 else "HTTP/2"
@@ -426,7 +426,7 @@ async def run_async_experiment(
                             experiment_id=experiment_id,
                             device=device,
                             trafficLoad = throughput,
-                            pcap = pcap_file if pcap else "n/a",
+                            pcap = pcap_file if pcap else "n/a"
                         )
                     if qlog and browser == "firefox":
                         # change qlogś name so that it will be saved to results/qlogs/async-[experimentID]/firefox
