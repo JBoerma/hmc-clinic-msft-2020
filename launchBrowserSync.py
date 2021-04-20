@@ -31,9 +31,12 @@ def do_single_experiment_sync(
     expnt_id: int,
     run_id: int,
 ) -> json:
-    apply_condition(device, condition)
-    results = launch_browser_sync(pw_instance, browser_type, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
-    reset_condition(device)
+    if condition == "unlimited":
+        results = launch_browser_sync(pw_instance, browser_type, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
+    else:
+        apply_condition(device, condition)
+        results = launch_browser_sync(pw_instance, browser_type, h3, endpoint, warmup, qlog, pcap, expnt_id, run_id)
+        reset_condition(device)
 
     return results
 

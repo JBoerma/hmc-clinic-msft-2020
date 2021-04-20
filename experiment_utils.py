@@ -29,6 +29,7 @@ condition_to_params = {
     "4g-lte-advanced-good": (80, 0, 25000),
     "4g-lte-advanced-lossy":(70, 1, 15000),
     "3.5g-hspa-long-latency":  (200,0,1800),
+    "unlimited": (0,0, -1)
 }
 
 """

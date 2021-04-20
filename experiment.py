@@ -318,7 +318,7 @@ def run_sync_experiment(
                     results["browser"] = browser 
                     results["payloadSize"] = endpoint.get_payload() 
                     results["netemParams"] = condition
-                    results["trafficLoad"] = 1
+                    results["trafficLoad"] = str(1)
                     results["pcap"]  = pcap_file if pcap else "n/a",
                     # TODO: currently missing server, add server
                     write_timing_data(results, database)
@@ -401,8 +401,8 @@ async def run_async_experiment(
                     for h3 in [True, False]
                 ] * runs
                 random.shuffle(params)
-
-                apply_condition(device, condition)
+                if condition != "unlimited":
+                    apply_condition(device, condition)
                 if pcap:
                     global pcap_process
                     pcap_file = f"results/packets/async-{experiment_id}/async.pcap"
@@ -436,7 +436,8 @@ async def run_async_experiment(
                             qlog_dir = f"{os.getcwd()}/results/qlogs/async-{experiment_id}/firefox/"
                             os.rename(qlog, f"{qlog_dir}/{set_id}-{qlog_num}.qlog")
                             qlog_num += 1
-                reset_condition(device) 
+                if condition != "unlimited":
+                    reset_condition(device) 
                 if pcap:
                     try:
                         pcap_process.wait(timeout=3)
