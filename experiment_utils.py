@@ -122,6 +122,7 @@ big_table_fmt = {
     "serverVersion" : "TEXT",
     "gitHash" : "TEXT",
     "condition" : "TEXT",
+    "logfile" : "TEXT"
     }
 
 monitoring_fmt = {
