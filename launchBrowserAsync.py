@@ -223,6 +223,10 @@ async def get_results_async(
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(await page.evaluate(timing_function))
         performance_timing['server'] = response.headers['server']
+        if response.status == 404:
+            logger.error("404 Response Code")
+            performance_timing = {'error': '404'}
+            pass
     except Exception as e:
         # if we run into error, write it in the database
         logger.error(str(e))

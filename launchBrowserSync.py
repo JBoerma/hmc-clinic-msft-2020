@@ -235,6 +235,9 @@ def get_results_sync(
         timing_function = '''JSON.stringify(window.performance.getEntriesByType("navigation")[0])'''
         performance_timing = json.loads(page.evaluate(timing_function))
         performance_timing['server'] = response.headers['server']
+        if response.status == 404:
+            logger.error("404 Response Code")
+            performance_timing = {'error': '404'}
     except Exception as e:
         # if we run into error, write it in the database
         logger.error(str(e))
