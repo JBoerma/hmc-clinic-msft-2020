@@ -388,7 +388,7 @@ async def run_async_experiment(
                 # Start system monitoring
                 global util_process
                 util_process = subprocess.Popen(["python3", "systemUtil.py", str(experiment_id), 'client', str(out)])
-                tableData = (schema_version, experiment_id, url, server_version, git_hash, condition)
+                tableData = (schema_version, experiment_id, url, server_version, git_hash, condition, log_file)
                 write_big_table_data(tableData, database)
 
                 # Start server monitoring if accessing our own server
