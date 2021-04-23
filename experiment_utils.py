@@ -43,7 +43,7 @@ APPLY_LATENCY_LOSS  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem dela
 APPLY_LATENCY  = "sudo tc qdisc add dev {DEVICE} root handle 1:0 netem delay {LATENCY}ms"
 # TODO: we are still not sure whether this emulates the desired network conditions, specifically we are not sure how to 
 # set the value of `burst` or `limit`, will need to further investigate into this
-APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbps burst {BURST} limit {LIMIT}"
+APPLY_BANDWIDTH  = "sudo tc qdisc add dev {DEVICE} parent 1:1 handle 10: tbf rate {BANDWIDTH}kbps burst {BURST}b limit {LIMIT}b"
 RESET_FORMAT = "sudo tc qdisc del dev {DEVICE} root"
 
 """
