@@ -43,7 +43,9 @@ class Endpoint():
             self.url = url 
             parsed_url = urlparse(self.url)
             self.domain = parsed_url.netloc
-            self.port = parsed_url.port 
+            self.port = parsed_url.port
+            if self.port == None:
+                self.port = 443
             self.endpoint = f"URL-{self.url}"
             return 
 

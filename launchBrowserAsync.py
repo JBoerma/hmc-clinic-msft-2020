@@ -126,7 +126,7 @@ async def launch_chromium_async(
     chromium_args = []
     if h3:
         # set up chromium arguments for enabling h3, qlog, h3 version
-        chromium_args = ["--enable-quic", "--quic-version=h3-29"]
+        chromium_args = ["--enable-quic", "--quic-version=h3-29", "--disable-http2"]
         domain = endpoint.get_domain()
         port = endpoint.get_port()
         chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
@@ -167,10 +167,10 @@ async def launch_edge_async(
 ) -> json:
     edge_args = []
     if (h3) :
-        chromium_args = ["--enable-quic", "--quic-version=h3-29"]
+        edge_args = ["--enable-quic", "--quic-version=h3-29", "--disable-http2"]
         domain = endpoint.get_domain()
         port = endpoint.get_port()
-        chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
+        edge_args.append(f"--origin-to-force-quic-on={domain}:{port}")
         if qlog:
             qlog_dir = f"{os.getcwd()}/results/async-qlogs/{expnt_id}/edge/"
             edge_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")

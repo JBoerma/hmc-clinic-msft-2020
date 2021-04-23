@@ -130,14 +130,10 @@ def launch_chromium_sync(
     chromium_args = []
     if h3:
         # set up chromium arguments for enabling h3, qlog, h3 version
-        chromium_args = ["--enable-quic", "--quic-version=h3-29"]
-        if endpoint.is_on_server(): 
-            domain = endpoint.get_domain()
-            port = endpoint.get_port()
-            chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
-        else: 
-            pass # TODO - do we need to force quic on other endpoints?
-        
+        chromium_args = ["--enable-quic", "--quic-version=h3-29", "--disable-http2"]
+        domain = endpoint.get_domain()
+        port = endpoint.get_port()
+        chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
         if qlog:
             # set up a directory results/qlogs/chromium/[experimentID] to save qlog
             qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/chromium/"
@@ -175,14 +171,10 @@ def launch_edge_sync(
 ) -> json:
     edge_args = []
     if (h3) :
-        chromium_args = ["--enable-quic", "--quic-version=h3-29"]
-        if endpoint.is_on_server(): 
-            domain = endpoint.get_domain()
-            port = endpoint.get_port()
-            chromium_args.append(f"--origin-to-force-quic-on={domain}:{port}")
-        else: 
-            pass # TODO - do we need to force quic on other endpoints?
-        
+        edge_args = ["--enable-quic", "--disable_http2", "--quic-version=h3-29"]
+        domain = endpoint.get_domain()
+        port = endpoint.get_port()
+        edge_args.append(f"--origin-to-force-quic-on={domain}:{port}")
         if qlog:
             qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/edge/"
             edge_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
