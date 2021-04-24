@@ -90,6 +90,7 @@ def launch_firefox_sync(
             firefox_prefs["network.http.http3.enable_qlog"] = True  # enable qlog
         firefox_prefs["network.http.http3.enabled"] = True # enable h3 protocol
         firefox_prefs["network.http.spdy.enabled.http2"] = False # disable h2 protocol
+        firefox_prefs["network.http.spdy.enabled"] = False # disable h1.1 protocol
         # the openlightspeed server works with a different h3 version than the rest of the servers
 
         port = endpoint.get_port()
