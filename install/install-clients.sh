@@ -2,7 +2,8 @@
 sudo apt install -y iproute2 \
                     libdbus-glib-1-2 \
                     libnss3-tools \
-                    golang 
+                    golang \
+                    tshark
 		    
 
 # Need Python 3.9.1 for Playwright
