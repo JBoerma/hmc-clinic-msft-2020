@@ -89,6 +89,7 @@ def launch_firefox_sync(
         if qlog:
             firefox_prefs["network.http.http3.enable_qlog"] = True  # enable qlog
         firefox_prefs["network.http.http3.enabled"] = True # enable h3 protocol
+        firefox_prefs["network.http.spdy.enabled.http2"] = False # disable h2 protocol
         # the openlightspeed server works with a different h3 version than the rest of the servers
 
         port = endpoint.get_port()
@@ -137,7 +138,7 @@ def launch_chromium_sync(
         if qlog:
             # set up a directory results/qlogs/chromium/[experimentID] to save qlog
             qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/chromium/"
-            chromium_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
+            chromium_args.append(f"--log-net-log={qlog_dir}/{run_id}.netlog")
     # attempt to launch browser
     try:
         if pcap:
@@ -177,7 +178,7 @@ def launch_edge_sync(
         edge_args.append(f"--origin-to-force-quic-on={domain}:{port}")
         if qlog:
             qlog_dir = f"{os.getcwd()}/results/qlogs/sync-{expnt_id}/edge/"
-            edge_args.append(f"--log-net-log={qlog_dir}/{run_id}.json")
+            edge_args.append(f"--log-net-log={qlog_dir}/{run_id}.netlog")
     # attempt to launch browser
     try:
         if pcap:
